@@ -84,6 +84,8 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
         party_type: PaymentEntry['party_type'],
         party: PaymentEntry['party'],
         party_name: PaymentEntry['party_name'],
+        branch: PaymentEntry['branch'],
+        cost_center: PaymentEntry['cost_center'],
         /** GL account that's paid from or paid to */
         account: string
         mode_of_payment: PaymentEntry['mode_of_payment']
@@ -93,13 +95,15 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
 
     const onReconcile = useRefreshUnreconciledTransactions()
 
-    const onSubmit = (data: { party_type: PaymentEntry['party_type'], party: PaymentEntry['party'], account: string, mode_of_payment: PaymentEntry['mode_of_payment'] }) => {
+    const onSubmit = (data: {cost_center: PaymentEntry['cost_center'], branch: PaymentEntry['branch'], party_type: PaymentEntry['party_type'], party: PaymentEntry['party'], account: string, mode_of_payment: PaymentEntry['mode_of_payment'] }) => {
 
         createPaymentEntry({
             bank_transaction_names: transactions.map((transaction) => transaction.name),
             party_type: data.party_type,
             party: data.party,
-            account: data.account
+            account: data.account,
+            branch: data.branch,
+            cost_center: data.cost_center
         }).then(() => {
             toast.success(_("Payment Recorded"), {
                 duration: 4000,
@@ -193,6 +197,29 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
 
 
                     </div>
+
+                    <LinkFormField
+                        name={`branch`}
+                        label={"Branch"}
+                        // rules={{
+                        //     onChange
+                        // }}
+                        // // Show the party name if it's different from the party - usually the case when a naming series is used
+                        // formDescription={party_name !== party ? party_name : undefined}
+                        doctype={"Branch"}
+
+                    />
+                    <LinkFormField
+                        name={`cost_center`}
+                        label={"Cost Center"}
+                        // rules={{
+                        //     onChange
+                        // }}
+                        // // Show the party name if it's different from the party - usually the case when a naming series is used
+                        // formDescription={party_name !== party ? party_name : undefined}
+                        doctype={"Cost Center"}
+
+                    />
 
                     <div className="col-span-2">
                         <AccountFormField
@@ -343,6 +370,29 @@ const PaymentEntryForm = ({ selectedTransaction, selectedBankAccount }: { select
                             <div className="col-span-3">
                                 <PartyField />
                             </div>
+
+                            <LinkFormField
+                                name={`branch`}
+                                label={"Branch"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Branch'}
+
+                            />
+                            <LinkFormField
+                                name={`cost_center`}
+                                label={"Cost Center"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Cost Center'}
+
+                            />
 
                             <div className="col-span-2">
                                 <AccountDropdown isWithdrawal={isWithdrawal} />
@@ -1089,6 +1139,7 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
                         checked={selectedRows.length > 0 && selectedRows.length === fields.length}
                         onCheckedChange={onSelectAll} /></TableHead>
                     <TableHead>{_("Account")} <span className="text-destructive">*</span></TableHead>
+                    <TableHead>{_("Branch")} <span className="text-destructive">*</span></TableHead>
                     <TableHead>{_("Cost Center")} <span className="text-destructive">*</span></TableHead>
                     <TableHead>{_("Description")}</TableHead>
                     <TableHead className="text-right">{_("Amount")} <span className="text-destructive">*</span></TableHead>
@@ -1115,6 +1166,26 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
                                 }}
                                 buttonClassName="min-w-64"
                                 isRequired
+                                hideLabel
+                            />
+                        </TableCell>
+                        <TableCell className="align-top">
+                            <LinkFormField
+                                doctype="Branch"
+                                reference_doctype="Payment Entry Deduction"
+                                // customQuery={{
+                                //     query: "erpnext.controllers.queries.get_filtered_dimensions",
+                                //     filters: {
+                                //         "dimension": "cost_center",
+                                //         "company": getValues('company'),
+                                //     }
+                                // }}
+                                rules={{
+                                    required: _("Branch is required"),
+                                }}
+                                name={`deductions.${index}.branch`}
+                                label={_("Branch")}
+                                buttonClassName="min-w-48"
                                 hideLabel
                             />
                         </TableCell>

@@ -31,6 +31,8 @@ export interface JournalEntry{
 	from_template?: string
 	/**	Company : Link - Company	*/
 	company: string
+	custom_branch: string
+	custom_cost_center: string
 	/**	Posting Date : Date	*/
 	posting_date: string
 	/**	Apply Tax Withholding Amount  : Check	*/

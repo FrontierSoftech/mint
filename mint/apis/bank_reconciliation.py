@@ -174,7 +174,10 @@ def create_internal_transfer(bank_transaction_name: str,
 
 @frappe.whitelist(methods=['POST'])
 def create_bulk_bank_entry_and_reconcile(bank_transactions: list, 
-                                         account: str):
+                                         account: str,
+                                         custom_branch: str,
+                                         custom_cost_center: str,
+                                         ):
     """
      Create bank entries for all transactions and reconcile them
     """
@@ -195,13 +198,18 @@ def create_bulk_bank_entry_and_reconcile(bank_transactions: list,
                                             "account": account,
                                             "amount": transactions_details.unallocated_amount,
                                         }],
-                                        voucher_type=("Credit Card Entry" if is_credit_card else "Bank Entry"))
+                                        voucher_type=("Credit Card Entry" if is_credit_card else "Bank Entry"),
+                                        custom_branch=custom_branch,
+                                        custom_cost_center=custom_cost_center
+                                        )
 
 @frappe.whitelist(methods=['POST'])
 def create_bank_entry_and_reconcile(bank_transaction_name: str, 
                                     cheque_date: str | datetime.date,
                                     posting_date: str | datetime.date,
                                     cheque_no: str,
+                                    custom_branch: str,
+                                    custom_cost_center: str,
                                     entries: list,
                                     user_remark: str = None,
                                     voucher_type: str = "Bank Entry",
@@ -230,6 +238,8 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str,
         "posting_date": posting_date,
         "cheque_no": cheque_no,
         "user_remark": user_remark,
+        "custom_branch": custom_branch,
+        "custom_cost_center": custom_cost_center,
     })
 
     # Compute accounts for JE 
@@ -243,6 +253,8 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str,
             "credit": bank_transaction.unallocated_amount,
             "debit_in_account_currency": 0,
             "debit": 0,
+            "branch": custom_branch,
+            "cost_center": custom_cost_center or default_cost_center,
         })
     else:
         bank_entry.append("accounts", {
@@ -252,6 +264,8 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str,
             "debit": bank_transaction.unallocated_amount,
             "credit_in_account_currency": 0,
             "debit": 0,
+            "branch": custom_branch,
+            "cost_center": custom_cost_center or default_cost_center,
         })
     
     if not dimensions:
@@ -277,7 +291,8 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str,
             "credit_in_account_currency": credit,
             "debit": debit,
             "credit": credit,
-            "cost_center": cost_center,
+            "cost_center": custom_cost_center or cost_center,
+            "branch": custom_branch,
             "party_type": entry.get("party_type") if entry.get("party") else None,
             "party": entry.get("party"),
             "user_remark": entry.get("user_remark"),
@@ -303,6 +318,8 @@ def create_bulk_payment_entry_and_reconcile(bank_transaction_names: list,
                                             party_type: str, 
                                             party: str, 
                                             account: str,
+                                            branch: str,
+                                            cost_center: str,
                                             mode_of_payment: str | None = None):
     """
         Create a payment entry and reconcile it with the bank transaction
@@ -329,6 +346,8 @@ def create_bulk_payment_entry_and_reconcile(bank_transaction_names: list,
             "company": bank_transaction.company,
             "mode_of_payment": mode_of_payment,
             "party_type": party_type,
+            "branch": branch,
+            "cost_center": cost_center,
             "party": party,
             "paid_from": paid_from,
             "paid_to": paid_to,

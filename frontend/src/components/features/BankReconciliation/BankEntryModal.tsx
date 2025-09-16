@@ -68,6 +68,8 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
 
     const form = useForm<{
         account: string
+        custom_branch: string
+        custom_cost_center: string
     }>({
         defaultValues: {
             account: ''
@@ -80,11 +82,13 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
 
     const setIsOpen = useSetAtom(bankRecRecordJournalEntryModalAtom)
 
-    const onSubmit = (data: { account: string }) => {
+    const onSubmit = (data: { account: string , custom_branch: string, custom_cost_center: string }) => {
 
         call({
             bank_transactions: selectedTransactions.map(transaction => transaction.name),
-            account: data.account
+            account: data.account,
+            custom_branch: data.custom_branch,
+            custom_cost_center: data.custom_cost_center
         }).then(() => {
 
             toast.success(_("Bank Entries Created"), {
@@ -114,6 +118,32 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
                         isRequired
                     />
                 </div>
+                <div className="grid grid-cols-3 gap-4">
+                    <LinkFormField
+                        name={`custom_branch`}
+                        label={"Branch"}
+                        // rules={{
+                        //     onChange
+                        // }}
+                        // // Show the party name if it's different from the party - usually the case when a naming series is used
+                        // formDescription={party_name !== party ? party_name : undefined}
+                        doctype={'Branch'}
+
+                    />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                    <LinkFormField
+                        name={`custom_cost_center`}
+                        label={"Cost Center"}
+                        // rules={{
+                        //     onChange
+                        // }}
+                        // // Show the party name if it's different from the party - usually the case when a naming series is used
+                        // formDescription={party_name !== party ? party_name : undefined}
+                        doctype={'Cost Center'}
+
+                    />
+                </div>
 
                 <DialogFooter>
                     <DialogClose asChild>
@@ -127,12 +157,13 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
 }
 
 
-interface BankEntryFormData extends Pick<JournalEntry, 'voucher_type' | 'cheque_date' | 'posting_date' | 'cheque_no' | 'user_remark'> {
+interface BankEntryFormData extends Pick<JournalEntry, 'voucher_type' | 'cheque_date' | 'posting_date' | 'cheque_no' | 'user_remark' |'custom_branch' | 'custom_cost_center'> {
     entries: {
         account: string,
         party_type: string,
         party: string,
         amount: number,
+        branch?: string,
         cost_center?: string,
         user_remark?: string,
     }[]
@@ -221,6 +252,28 @@ const BankEntryForm = ({ selectedTransaction }: { selectedTransaction: Unreconci
                                 rules={{
                                     required: _("Reference Date is required"),
                                 }}
+                            />
+                            <LinkFormField
+                                name={`custom_branch`}
+                                label={"Branch"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Branch'}
+
+                            />
+                            <LinkFormField
+                                name={`custom_cost_center`}
+                                label={"Cost Center"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Cost Center'}
+
                             />
                         </div>
                         <DataField name='cheque_no' label={"Reference No"} isRequired inputProps={{ autoFocus: false }}
@@ -360,6 +413,7 @@ const Entries = ({ company, isWithdrawal, amount, currency }: { company: string,
                         onCheckedChange={onSelectAll} /></TableHead>
                     <TableHead>{_("Party")}</TableHead>
                     <TableHead>{_("Account")}</TableHead>
+                    <TableHead>{_("Branch")}</TableHead>
                     <TableHead>{_("Cost Center")}</TableHead>
                     <TableHead>{_("Remarks")}</TableHead>
                     <TableHead className="text-right">{_("Amount")}</TableHead>
@@ -407,6 +461,16 @@ const Entries = ({ company, isWithdrawal, amount, currency }: { company: string,
                                 }}
                                 buttonClassName="min-w-64"
                                 isRequired
+                                hideLabel
+                            />
+                        </TableCell>
+                        <TableCell className="align-top">
+                            <LinkFormField
+                                doctype="Branch"
+                                name={`entries.${index}.branch`}
+                                label={_("Branch")}
+                                // filters={[["company", "=", company], ["is_group", "=", 0], ["disabled", "=", 0]]}
+                                buttonClassName="min-w-48"
                                 hideLabel
                             />
                         </TableCell>
