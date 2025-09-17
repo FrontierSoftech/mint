@@ -74,7 +74,9 @@ def unreconcile_transaction(transaction_name: str):
 
 @frappe.whitelist(methods=["POST"])
 def create_bulk_internal_transfer(bank_transaction_names: list, 
-                                  bank_account: str):
+                                  bank_account: str,
+                                  branch: str,
+                                  cost_center: str):
     """
         Create an internal transfer for multiple bank transactions
     """
@@ -100,13 +102,18 @@ def create_bulk_internal_transfer(bank_transaction_names: list,
                                  reference_date=bank_transaction.date,
                                  reference_no=reference_no,
                                  paid_from=paid_from,
-                                 paid_to=paid_to,)
+                                 paid_to=paid_to,
+                                 branch=branch,
+                                 cost_center=cost_center,
+                                 )
 
 @frappe.whitelist()
 def create_internal_transfer(bank_transaction_name: str, 
                              posting_date: str | datetime.date, 
                              reference_date: str | datetime.date, 
                              reference_no: str, 
+                             branch: str, 
+                             cost_center: str, 
                              paid_from: str, 
                              paid_to: str,
                              custom_remarks: bool = False,
@@ -131,6 +138,8 @@ def create_internal_transfer(bank_transaction_name: str,
     pe.posting_date = posting_date
     pe.reference_date = reference_date
     pe.reference_no = reference_no
+    pe.branch = branch
+    pe.cost_center = cost_center
     pe.custom_remarks = custom_remarks
     pe.paid_amount = bank_transaction.unallocated_amount
     pe.received_amount = bank_transaction.unallocated_amount
@@ -415,6 +424,15 @@ def get_party_details(company: str, party_type: str, party: str):
         "party_account": party_account,
         "party_name": party_name,
     }
+
+@frappe.whitelist(methods=["GET"])
+def get_cost_center(branch: str):
+    if branch:
+        cost_center = frappe.db.get_value('Branch', branch, 'custom_cost_center')
+
+        return {
+            "cost_center": cost_center
+        }
 
 @frappe.whitelist(methods=["GET"])
 def search_for_transfer_transaction(transaction_id: str):

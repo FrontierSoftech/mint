@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import SelectedTransactionDetails from './SelectedTransactionDetails'
 import { PaymentEntry } from '@/types/Accounts/PaymentEntry'
 import { useForm, useFormContext, useWatch } from 'react-hook-form'
-import { useFrappeGetCall, useFrappePostCall } from 'frappe-react-sdk'
+import { useFrappeGetCall, useFrappePostCall, FrappeContext, FrappeConfig } from 'frappe-react-sdk'
 import { toast } from 'sonner'
 import ErrorBanner from '@/components/ui/error-banner'
 import { H4 } from '@/components/ui/typography'
@@ -15,11 +15,11 @@ import { cn } from '@/lib/utils'
 import { ArrowRight, Banknote, Landmark, BadgeCheck, Calendar, ArrowUpRight, ArrowDownRight, CheckIcon, CheckCircle } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Form } from '@/components/ui/form'
-import { AccountFormField, DataField, DateField, SmallTextField } from '@/components/ui/form-elements'
+import { AccountFormField, DataField, DateField, SmallTextField, LinkFormField } from '@/components/ui/form-elements'
 import SelectedTransactionsTable from './SelectedTransactionsTable'
 import { useCurrentCompany } from '@/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/date'
-import { useMemo } from 'react'
+import { useMemo, useContext, ChangeEvent} from 'react'
 import { BANK_LOGOS } from './logos'
 import { formatCurrency } from '@/lib/numbers'
 
@@ -67,7 +67,9 @@ const TransferModalContent = () => {
 const BulkInternalTransferForm = ({ transactions }: { transactions: UnreconciledTransaction[] }) => {
 
     const form = useForm<{
-        bank_account: string
+        bank_account: string,
+        branch: string,
+        cost_center: string
     }>()
 
     const setIsOpen = useSetAtom(bankRecTransferModalAtom)
@@ -76,11 +78,13 @@ const BulkInternalTransferForm = ({ transactions }: { transactions: Unreconciled
 
     const onReconcile = useRefreshUnreconciledTransactions()
 
-    const onSubmit = (data: { bank_account: string }) => {
+    const onSubmit = (data: { bank_account: string , branch: string, cost_center:string}) => {
 
         createPaymentEntry({
             bank_transaction_names: transactions.map((transaction) => transaction.name),
-            bank_account: data.bank_account
+            bank_account: data.bank_account,
+            branch: data.branch,
+            cost_center: data.cost_center
         }).then(() => {
             toast.success(_("Transfer Recorded"), {
                 duration: 4000,
@@ -111,6 +115,29 @@ const BulkInternalTransferForm = ({ transactions }: { transactions: Unreconciled
                 <SelectedTransactionsTable />
 
                 <BankOrCashPicker company={company} bankAccount={transactions[0].bank_account ?? ''} onAccountChange={onAccountChange} selectedAccount={selectedAccount} />
+
+                <LinkFormField
+                    name={`branch`}
+                    label={"Branch"}
+                    // rules={{
+                    //     onChange
+                    // }}
+                    // // Show the party name if it's different from the party - usually the case when a naming series is used
+                    // formDescription={party_name !== party ? party_name : undefined}
+                    doctype={'Branch'}
+
+                />
+
+                <LinkFormField
+                    name={`cost_center`}
+                    label={"Cost Center"}
+                    // rules={{
+                    //     onChange
+                    // }}
+                    // // Show the party name if it's different from the party - usually the case when a naming series is used
+                    // formDescription={party_name !== party ? party_name : undefined}
+                    doctype={'Cost Center'}
+                />
 
                 <DialogFooter>
                     <DialogClose asChild>
@@ -171,7 +198,9 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
             ...data,
             custom_remarks: data.remarks ? true : false,
             // Pass this to reconcile both at the same time
-            mirror_transaction_name: data.mirror_transaction_name
+            mirror_transaction_name: data.mirror_transaction_name,
+            branch: data.branch,
+            cost_center: data.cost_center
         }).then(() => {
             toast.success(_("Transfer Recorded"), {
                 duration: 4000,
@@ -225,6 +254,27 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                                 label={"Reference Date"}
                                 isRequired
                                 inputProps={{ autoFocus: false }}
+                            />
+                            <LinkFormField
+                                name={`branch`}
+                                label={"Branch"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Branch'}
+
+                            />
+                            <LinkFormField
+                                name={`cost_center`}
+                                label={"Cost Center"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Cost Center'}
                             />
                         </div>
                         <DataField name='reference_no' label={"Reference No"} isRequired inputProps={{ autoFocus: false }} />
@@ -286,7 +336,6 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
         </form>
     </Form>
 }
-
 
 const BankOrCashPicker = ({ bankAccount, onAccountChange, selectedAccount, company }: { selectedAccount: string, bankAccount: string, onAccountChange: (account: string) => void, company: string }) => {
 

@@ -95,7 +95,7 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
 
     const onReconcile = useRefreshUnreconciledTransactions()
 
-    const onSubmit = (data: {cost_center: PaymentEntry['cost_center'], branch: PaymentEntry['branch'], party_type: PaymentEntry['party_type'], party: PaymentEntry['party'], account: string, mode_of_payment: PaymentEntry['mode_of_payment'] }) => {
+    const onSubmit = (data: { cost_center: PaymentEntry['cost_center'], branch: PaymentEntry['branch'], party_type: PaymentEntry['party_type'], party: PaymentEntry['party'], account: string, mode_of_payment: PaymentEntry['mode_of_payment'] }) => {
 
         createPaymentEntry({
             bank_transaction_names: transactions.map((transaction) => transaction.name),
@@ -207,8 +207,8 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
                         // // Show the party name if it's different from the party - usually the case when a naming series is used
                         // formDescription={party_name !== party ? party_name : undefined}
                         doctype={"Branch"}
-
                     />
+                 
                     <LinkFormField
                         name={`cost_center`}
                         label={"Cost Center"}
@@ -340,6 +340,7 @@ const PaymentEntryForm = ({ selectedTransaction, selectedBankAccount }: { select
             onClose()
         })
     }
+    
 
     return <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -382,6 +383,7 @@ const PaymentEntryForm = ({ selectedTransaction, selectedBankAccount }: { select
                                 doctype={'Branch'}
 
                             />
+                            
                             <LinkFormField
                                 name={`cost_center`}
                                 label={"Cost Center"}
@@ -464,10 +466,7 @@ const PartyField = () => {
 
     const { control, setValue } = useFormContext<PaymentEntry>()
 
-    const party_type = useWatch({
-        control,
-        name: `party_type`
-    })
+    const party_type = useWatch({ control, name: `party_type` })
 
     const { call } = useContext(FrappeContext) as FrappeConfig
 
@@ -532,7 +531,6 @@ const PartyField = () => {
 
     />
 }
-
 
 const AccountDropdown = ({ isWithdrawal }: { isWithdrawal: boolean }) => {
 
@@ -1183,6 +1181,7 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
                                 rules={{
                                     required: _("Branch is required"),
                                 }}
+                                
                                 name={`deductions.${index}.branch`}
                                 label={_("Branch")}
                                 buttonClassName="min-w-48"
