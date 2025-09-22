@@ -5,7 +5,7 @@ import _ from "@/lib/translate"
 import { UnreconciledTransaction, useGetRuleForTransaction, useRefreshUnreconciledTransactions } from "./utils"
 import { useFieldArray, useForm, useFormContext, useWatch } from "react-hook-form"
 import { JournalEntry } from "@/types/Accounts/JournalEntry"
-import { getCompanyCostCenter, getCompanyCurrency } from "@/lib/company"
+import { getCompanyCurrency } from "@/lib/company"
 import { FrappeConfig, FrappeContext, useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
 import ErrorBanner from "@/components/ui/error-banner"
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import SelectedTransactionDetails from "./SelectedTransactionDetails"
 import { AccountFormField, CurrencyFormField, DataField, DateField, LinkFormField, PartyTypeFormField, SmallTextField } from "@/components/ui/form-elements"
 import { Form } from "@/components/ui/form"
-import { useCallback, useContext, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useMemo, useRef, useState, ChangeEvent } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Trash2 } from "lucide-react"
@@ -21,6 +21,7 @@ import { formatCurrency } from "@/lib/numbers"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import SelectedTransactionsTable from "./SelectedTransactionsTable"
+
 
 const BankEntryModal = () => {
 
@@ -119,7 +120,7 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
                     />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
-                    <LinkFormField
+                    {/* <LinkFormField
                         name={`custom_branch`}
                         label={"Branch"}
                         // rules={{
@@ -129,7 +130,8 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
                         // formDescription={party_name !== party ? party_name : undefined}
                         doctype={'Branch'}
 
-                    />
+                    /> */}
+                    <BranchField />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                     <LinkFormField
@@ -196,7 +198,7 @@ const BankEntryForm = ({ selectedTransaction }: { selectedTransaction: Unreconci
                     account: rule?.account ?? '',
                     amount: selectedTransaction.unallocated_amount,
                     party_type: '',
-                    cost_center: getCompanyCostCenter(selectedTransaction.company ?? '') ?? ''
+                    cost_center:  ''
                 }
             ],
         }
@@ -253,7 +255,7 @@ const BankEntryForm = ({ selectedTransaction }: { selectedTransaction: Unreconci
                                     required: _("Reference Date is required"),
                                 }}
                             />
-                            <LinkFormField
+                            {/* <LinkFormField
                                 name={`custom_branch`}
                                 label={"Branch"}
                                 // rules={{
@@ -263,7 +265,8 @@ const BankEntryForm = ({ selectedTransaction }: { selectedTransaction: Unreconci
                                 // formDescription={party_name !== party ? party_name : undefined}
                                 doctype={'Branch'}
 
-                            />
+                            /> */}
+                            <BranchField />
                             <LinkFormField
                                 name={`custom_cost_center`}
                                 label={"Cost Center"}
@@ -307,6 +310,39 @@ const BankEntryForm = ({ selectedTransaction }: { selectedTransaction: Unreconci
 
 }
 
+const BranchField = () => {
+
+    const { setValue } = useFormContext<JournalEntry>()
+
+    const { call } = useContext(FrappeContext) as FrappeConfig
+
+    // const branch = useWatch({ control, name: 'branch' }) 
+
+    const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+        // Fetch the party and account
+        if (event.target.value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: event.target.value
+            }).then((res) => {
+                setValue('custom_cost_center', res.message.cost_center)
+            })
+        } else {
+            // Clear the party and account
+            setValue('custom_cost_center', '')
+        }
+    }
+
+    return <LinkFormField
+        name={`custom_branch`}
+        label={"Branch"}
+        rules={{
+            onChange
+        }}    
+        doctype={'Branch'}
+
+    />
+}
+
 const Entries = ({ company, isWithdrawal, amount, currency }: { company: string, isWithdrawal: boolean, amount?: number, currency: string }) => {
 
     const { getValues, setValue, control } = useFormContext<BankEntryFormData>()
@@ -336,6 +372,19 @@ const Entries = ({ company, isWithdrawal, amount, currency }: { company: string,
             setValue(`entries.${index}.account`, '')
         }
     }
+
+    const onBranchChange = (value: string, index: number) => {
+        // Get the account for the party type
+        if (value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: value
+            }).then((res) => {
+                setValue(`entries.${index}.cost_center`, res.message.cost_center)
+            })      
+        }else {
+            setValue(`entries.${index}.cost_center`, '')
+        }
+    }   
 
     const onAccountChange = (value: string, index: number) => {
         // If it's an income or expense account, get the default cost center
@@ -368,7 +417,7 @@ const Entries = ({ company, isWithdrawal, amount, currency }: { company: string,
             party: '',
             account: '',
             amount: remainingAmount,
-            cost_center: getCompanyCostCenter(company) ?? ''
+            cost_center:  ''
         }, {
             focusName: `entries.${existingEntries.length}.account`
         })
@@ -465,14 +514,15 @@ const Entries = ({ company, isWithdrawal, amount, currency }: { company: string,
                             />
                         </TableCell>
                         <TableCell className="align-top">
-                            <LinkFormField
+                            {/* <LinkFormField
                                 doctype="Branch"
                                 name={`entries.${index}.branch`}
                                 label={_("Branch")}
                                 // filters={[["company", "=", company], ["is_group", "=", 0], ["disabled", "=", 0]]}
                                 buttonClassName="min-w-48"
                                 hideLabel
-                            />
+                            /> */}
+                            <BranchChildField index={index} onChange={onBranchChange} />
                         </TableCell>
                         <TableCell className="align-top">
                             <LinkFormField
@@ -557,6 +607,23 @@ const PartyField = ({ index, onChange }: { index: number, onChange: (value: stri
         buttonClassName="rounded-l-none border-l-0 min-w-64"
         doctype={party_type}
 
+    />
+}
+
+const BranchChildField = ({ index, onChange }: { index: number, onChange: (value: string, index: number) => void }) => {
+
+    return <LinkFormField
+        name={`entries.${index}.branch`}
+        label={"Branch"}
+        buttonClassName="min-w-48"  
+        hideLabel       
+        rules={{
+            onChange: (e) => {
+                const selectedValue = e?.target?.value ?? '';
+                onChange(selectedValue, index);
+            }
+        }}    
+        doctype={'Branch'}
     />
 }
 

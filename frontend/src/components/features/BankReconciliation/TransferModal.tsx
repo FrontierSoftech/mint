@@ -116,7 +116,7 @@ const BulkInternalTransferForm = ({ transactions }: { transactions: Unreconciled
 
                 <BankOrCashPicker company={company} bankAccount={transactions[0].bank_account ?? ''} onAccountChange={onAccountChange} selectedAccount={selectedAccount} />
 
-                <LinkFormField
+                {/* <LinkFormField
                     name={`branch`}
                     label={"Branch"}
                     // rules={{
@@ -126,7 +126,8 @@ const BulkInternalTransferForm = ({ transactions }: { transactions: Unreconciled
                     // formDescription={party_name !== party ? party_name : undefined}
                     doctype={'Branch'}
 
-                />
+                /> */}
+                <BranchField />
 
                 <LinkFormField
                     name={`cost_center`}
@@ -255,7 +256,7 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                                 isRequired
                                 inputProps={{ autoFocus: false }}
                             />
-                            <LinkFormField
+                            {/* <LinkFormField
                                 name={`branch`}
                                 label={"Branch"}
                                 // rules={{
@@ -264,8 +265,8 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                                 // // Show the party name if it's different from the party - usually the case when a naming series is used
                                 // formDescription={party_name !== party ? party_name : undefined}
                                 doctype={'Branch'}
-
-                            />
+                            /> */}
+                            <BranchField />
                             <LinkFormField
                                 name={`cost_center`}
                                 label={"Cost Center"}
@@ -335,6 +336,39 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
             </div>
         </form>
     </Form>
+}
+
+const BranchField = () => {
+
+    const { setValue } = useFormContext<PaymentEntry>()
+
+    const { call } = useContext(FrappeContext) as FrappeConfig
+
+    // const branch = useWatch({ control, name: 'branch' }) 
+
+    const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+        // Fetch the party and account
+        if (event.target.value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: event.target.value
+            }).then((res) => {
+                setValue('cost_center', res.message.cost_center)
+            })
+        } else {
+            // Clear the party and account
+            setValue('cost_center', '')
+        }
+    }
+
+    return <LinkFormField
+        name={`branch`}
+        label={"Branch"}
+        rules={{
+            onChange
+        }}    
+        doctype={'Branch'}
+
+    />
 }
 
 const BankOrCashPicker = ({ bankAccount, onAccountChange, selectedAccount, company }: { selectedAccount: string, bankAccount: string, onAccountChange: (account: string) => void, company: string }) => {

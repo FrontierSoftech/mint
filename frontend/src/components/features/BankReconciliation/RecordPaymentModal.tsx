@@ -198,7 +198,7 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
 
                     </div>
 
-                    <LinkFormField
+                    {/* <LinkFormField
                         name={`branch`}
                         label={"Branch"}
                         // rules={{
@@ -207,8 +207,8 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
                         // // Show the party name if it's different from the party - usually the case when a naming series is used
                         // formDescription={party_name !== party ? party_name : undefined}
                         doctype={"Branch"}
-                    />
-                 
+                    /> */}
+                    <BranchField/>
                     <LinkFormField
                         name={`cost_center`}
                         label={"Cost Center"}
@@ -372,7 +372,7 @@ const PaymentEntryForm = ({ selectedTransaction, selectedBankAccount }: { select
                                 <PartyField />
                             </div>
 
-                            <LinkFormField
+                            {/* <LinkFormField
                                 name={`branch`}
                                 label={"Branch"}
                                 // rules={{
@@ -382,8 +382,8 @@ const PaymentEntryForm = ({ selectedTransaction, selectedBankAccount }: { select
                                 // formDescription={party_name !== party ? party_name : undefined}
                                 doctype={'Branch'}
 
-                            />
-                            
+                            /> */}
+                            <BranchField/>
                             <LinkFormField
                                 name={`cost_center`}
                                 label={"Cost Center"}
@@ -531,6 +531,39 @@ const PartyField = () => {
 
     />
 }
+const BranchField = () => {
+
+    const { setValue } = useFormContext<PaymentEntry>()
+
+    const { call } = useContext(FrappeContext) as FrappeConfig
+
+    // const branch = useWatch({ control, name: 'branch' }) 
+
+    const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+        // Fetch the party and account
+        if (event.target.value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: event.target.value
+            }).then((res) => {
+                setValue('cost_center', res.message.cost_center)
+            })
+        } else {
+            // Clear the party and account
+            setValue('cost_center', '')
+        }
+    }
+
+    return <LinkFormField
+        name={`branch`}
+        label={"Branch"}
+        rules={{
+            onChange
+        }}    
+        doctype={'Branch'}
+
+    />
+}
+
 
 const AccountDropdown = ({ isWithdrawal }: { isWithdrawal: boolean }) => {
 
@@ -1076,8 +1109,9 @@ const FetchInvoicesModal = ({ onClose }: { onClose: () => void }) => {
 const OtherChargesSection = ({ currency }: { currency: string }) => {
 
     const { setTotalAllocatedAmount } = usePaymentEntryCalculations()
-    const { getValues, control } = useFormContext<PaymentEntry>()
-
+    const { getValues, setValue, control } = useFormContext<PaymentEntry>()
+    
+    const { call } = useContext(FrappeContext) as FrappeConfig
     const { fields, append, remove } = useFieldArray({
         control: control,
         name: 'deductions'
@@ -1114,13 +1148,26 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
 
         append({
             account: '',
-            cost_center: getCompanyCostCenter(getValues('company')),
+            cost_center: '',
             description: '',
             amount: 0
         } as PaymentEntryDeduction)
 
 
-    }
+    }   
+
+    const onBranchChange = (value: string, index: number) => {
+        // Get the account for the party type
+        if (value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: value
+            }).then((res) => {
+                setValue(`deductions.${index}.cost_center`, res.message.cost_center)
+            })      
+        }else {
+            setValue(`deductions.${index}.cost_center`, '')
+        }
+    } 
 
     return <div className="flex flex-col gap-2">
         <div className="flex gap-2 items-center">
@@ -1168,7 +1215,7 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
                             />
                         </TableCell>
                         <TableCell className="align-top">
-                            <LinkFormField
+                            {/* <LinkFormField
                                 doctype="Branch"
                                 reference_doctype="Payment Entry Deduction"
                                 // customQuery={{
@@ -1186,7 +1233,8 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
                                 label={_("Branch")}
                                 buttonClassName="min-w-48"
                                 hideLabel
-                            />
+                            /> */}
+                            <BranchChildField index={index} onChange={onBranchChange} />
                         </TableCell>
                         <TableCell className="align-top">
                             <LinkFormField
@@ -1248,6 +1296,23 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
             </div>
         </div>
     </div>
+}
+
+const BranchChildField = ({ index, onChange }: { index: number, onChange: (value: string, index: number) => void }) => {
+
+    return <LinkFormField
+        name={`deductions.${index}.branch`}
+        label={"Branch"}
+        buttonClassName="min-w-48"  
+        hideLabel       
+        rules={{
+            onChange: (e) => {
+                const selectedValue = e?.target?.value ?? '';
+                onChange(selectedValue, index);
+            }
+        }}    
+        doctype={'Branch'}
+    />
 }
 
 const TotalDeductions = ({ currency }: { currency: string }) => {
