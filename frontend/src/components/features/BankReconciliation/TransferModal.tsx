@@ -246,13 +246,13 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                         <div className='grid grid-cols-2 gap-4'>
                             <DateField
                                 name='posting_date'
-                                label={"Posting Date"}
+                                label={_("Posting Date")}
                                 isRequired
                                 inputProps={{ autoFocus: false }}
                             />
                             <DateField
                                 name='reference_date'
-                                label={"Reference Date"}
+                                label={_("Reference Date")}
                                 isRequired
                                 inputProps={{ autoFocus: false }}
                             />
@@ -278,7 +278,7 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                                 doctype={'Cost Center'}
                             />
                         </div>
-                        <DataField name='reference_no' label={"Reference No"} isRequired inputProps={{ autoFocus: false }} />
+                        <DataField name='reference_no' label={_("Reference No")} isRequired inputProps={{ autoFocus: false }} />
                     </div>
                 </div>
 
@@ -292,7 +292,7 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                         <div className='flex-1'>
                             <AccountFormField
                                 name="paid_from"
-                                label="Paid From"
+                                label={_("Paid From")}
                                 account_type={['Bank', 'Cash']}
                                 readOnly={isWithdrawal}
                                 filterFunction={(account) => account.name !== selectedBankAccount.account}
@@ -306,7 +306,7 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                         <div className='flex-1'>
                             <AccountFormField
                                 name="paid_to"
-                                label="Paid To"
+                                label={_("Paid To")}
                                 account_type={['Bank', 'Cash']}
                                 isRequired
                                 readOnly={!isWithdrawal}
@@ -322,8 +322,8 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
 
                         <SmallTextField
                             name='remarks'
-                            label={"Custom Remarks"}
-                            formDescription={"This will be auto-populated if not set."}
+                            label={_("Custom Remarks")}
+                            formDescription={_("This will be auto-populated if not set.")}
                         />
                     </div>
                 </div>
