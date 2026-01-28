@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import SelectedTransactionDetails from './SelectedTransactionDetails'
 import { PaymentEntry } from '@/types/Accounts/PaymentEntry'
 import { useForm, useFormContext, useWatch } from 'react-hook-form'
-import { useFrappeGetCall, useFrappePostCall, FrappeContext, FrappeConfig } from 'frappe-react-sdk'
+import { FrappeConfig, FrappeContext, useFrappeGetCall, useFrappePostCall } from 'frappe-react-sdk'
 import { toast } from 'sonner'
 import ErrorBanner from '@/components/ui/error-banner'
 import { H4 } from '@/components/ui/typography'
@@ -22,6 +22,9 @@ import { formatDate } from '@/lib/date'
 import { useMemo, useContext, ChangeEvent} from 'react'
 import { BANK_LOGOS } from './logos'
 import { formatCurrency } from '@/lib/numbers'
+import { Label } from '@/components/ui/label'
+import { FileDropzone } from '@/components/ui/file-dropzone'
+import FileUploadBanner from '@/components/common/FileUploadBanner'
 
 const TransferModal = () => {
 
@@ -188,9 +191,16 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
 
     const onReconcile = useRefreshUnreconciledTransactions()
 
-    const { call: createPaymentEntry, loading, error } = useFrappePostCall('mint.apis.bank_reconciliation.create_internal_transfer')
+    const { call: createPaymentEntry, loading, error, isCompleted } = useFrappePostCall<{ message: { transaction: string, payment_entry: PaymentEntry } }>('mint.apis.bank_reconciliation.create_internal_transfer')
 
     const setBankRecUnreconcileModalAtom = useSetAtom(bankRecUnreconcileModalAtom)
+
+    const { file: frappeFile } = useContext(FrappeContext) as FrappeConfig
+
+    const [isUploading, setIsUploading] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(0)
+
+    const [files, setFiles] = useState<File[]>([])
 
     const onSubmit = (data: InternalTransferFormFields) => {
 
@@ -199,10 +209,8 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
             ...data,
             custom_remarks: data.remarks ? true : false,
             // Pass this to reconcile both at the same time
-            mirror_transaction_name: data.mirror_transaction_name,
-            branch: data.branch,
-            cost_center: data.cost_center
-        }).then(() => {
+            mirror_transaction_name: data.mirror_transaction_name
+        }).then(async ({ message }) => {
             toast.success(_("Transfer Recorded"), {
                 duration: 4000,
                 closeButton: true,
@@ -214,6 +222,35 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                     backgroundColor: "rgb(0, 138, 46)"
                 }
             })
+
+            if (files.length > 0) {
+                setIsUploading(true)
+
+                const uploadPromises = files.map(f => {
+                    return frappeFile.uploadFile(f, {
+                        isPrivate: true,
+                        doctype: "Payment Entry",
+                        docname: message.payment_entry.name,
+                    }, (_bytesUploaded, _totalBytes, progress) => {
+
+                        setUploadProgress((currentProgress) => {
+                            //If there are multiple files, we need to add the progress to the current progress
+                            return currentProgress + ((progress?.progress ?? 0) / files.length)
+                        })
+
+                    })
+                })
+
+                return Promise.all(uploadPromises).then(() => {
+                    setUploadProgress(0)
+                    setIsUploading(false)
+                })
+            } else {
+                return Promise.resolve()
+            }
+        }).then(() => {
+            setUploadProgress(0)
+            setIsUploading(false)
             onReconcile(selectedTransaction)
             onClose()
         })
@@ -234,6 +271,11 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
     }
 
     const selectedAccount = useWatch({ control: form.control, name: (selectedTransaction.deposit && selectedTransaction.deposit > 0) ? 'paid_from' : 'paid_to' })
+
+
+    if (isUploading && isCompleted) {
+        return <FileUploadBanner uploadProgress={uploadProgress} />
+    }
 
     return <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -325,6 +367,13 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                             label={_("Custom Remarks")}
                             formDescription={_("This will be auto-populated if not set.")}
                         />
+                        <div
+                            data-slot="form-item"
+                            className="flex flex-col gap-2"
+                        >
+                            <Label>{_("Attachments")}</Label>
+                            <FileDropzone files={files} setFiles={setFiles} />
+                        </div>
                     </div>
                 </div>
                 <DialogFooter>

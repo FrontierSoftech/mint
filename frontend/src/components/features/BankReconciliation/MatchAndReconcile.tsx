@@ -1,16 +1,15 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import { MissingFiltersBanner } from "./MissingFiltersBanner"
-import { bankRecRecordJournalEntryModalAtom, bankRecRecordPaymentModalAtom, bankRecSelectedTransactionAtom, bankRecTransferModalAtom, selectedBankAccountAtom } from "./bankRecAtoms"
+import { bankRecAmountFilter, bankRecDateAtom, bankRecRecordJournalEntryModalAtom, bankRecRecordPaymentModalAtom, bankRecSelectedTransactionAtom, bankRecTransactionTypeFilter, bankRecTransferModalAtom, selectedBankAccountAtom } from "./bankRecAtoms"
 import { H4 } from "@/components/ui/typography"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { getCompanyCurrency } from "@/lib/company"
 import ErrorBanner from "@/components/ui/error-banner"
 import { Separator } from "@/components/ui/separator"
 import Fuse from 'fuse.js'
-import { LinkedPayment, UnreconciledTransaction, useGetRuleForTransaction, useGetUnreconciledTransactions, useGetVouchersForTransaction, useIsTransactionWithdrawal, useReconcileTransaction } from "./utils"
-import { useDebounceValue } from 'usehooks-ts'
+import { getSearchResults, LinkedPayment, UnreconciledTransaction, useGetRuleForTransaction, useGetUnreconciledTransactions, useGetVouchersForTransaction, useIsTransactionWithdrawal, useReconcileTransaction, useTransactionSearch } from "./utils"
 import { Input } from "@/components/ui/input"
-import { ArrowDownRight, ArrowRightLeft, ArrowUpRight, BadgeCheck, ChevronDown, DollarSign, Landmark, Loader2, Receipt, Search, User, XCircle, ZapIcon } from "lucide-react"
+import { AlertCircle, ArrowDownRight, ArrowRightIcon, ArrowRightLeft, ArrowUpRight, BadgeCheck, ChevronDown, DollarSign, Landmark, Loader2, Receipt, Search, User, XCircle, ZapIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
@@ -30,6 +29,10 @@ import RecordPaymentModal from "./RecordPaymentModal"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import SelectedTransactionsTable from "./SelectedTransactionsTable"
 import MatchFilters from "./MatchFilters"
+import { useHotkeys } from "react-hotkeys-hook"
+import { KeyboardMetaKeyIcon } from "@/components/ui/keyboard-keys"
+import { Kbd, KbdGroup } from "@/components/ui/kbd"
+import { useFrappeGetCall } from "frappe-react-sdk"
 
 const MatchAndReconcile = ({ contentHeight }: { contentHeight: number }) => {
     const selectedBank = useAtomValue(selectedBankAccountAtom)
@@ -62,20 +65,16 @@ const UnreconciledTransactions = ({ contentHeight }: { contentHeight: number }) 
 
     const currency = bankAccount?.account_currency ?? getCompanyCurrency(bankAccount?.company ?? '')
     const currencySymbol = getCurrencySymbol(currency)
-    
     const formatInfo = getCurrencyFormatInfo(currency)
     const groupSeparator = formatInfo.group_sep || ","
     const decimalSeparator = formatInfo.decimal_str || "."
 
     const { data: unreconciledTransactions, isLoading, error } = useGetUnreconciledTransactions()
 
-    const [typeFilter, setTypeFilter] = useState('All')
-    const [amountFilter, setAmountFilter] = useState<{ value: number, stringValue?: string | number }>({
-        value: 0,
-        stringValue: '0.00'
-    })
+    const [typeFilter, setTypeFilter] = useAtom(bankRecTransactionTypeFilter)
+    const [amountFilter, setAmountFilter] = useAtom(bankRecAmountFilter)
 
-    const [search, setSearch] = useDebounceValue('', 500)
+    const [search, setSearch] = useTransactionSearch()
 
     const searchIndex = useMemo(() => {
 
@@ -92,37 +91,7 @@ const UnreconciledTransactions = ({ contentHeight }: { contentHeight: number }) 
 
     const results = useMemo(() => {
 
-        let r = []
-        if (!searchIndex || !search) {
-            r = unreconciledTransactions?.message ?? []
-        } else {
-            r = searchIndex.search(search).map((result) => result.item)
-        }
-
-        if (typeFilter !== 'All') {
-            r = r.filter((transaction) => {
-                if (typeFilter === 'Debits') {
-                    return transaction.withdrawal && transaction.withdrawal > 0
-                }
-                if (typeFilter === 'Credits') {
-                    return transaction.deposit && transaction.deposit > 0
-                }
-            })
-        }
-
-        if (amountFilter.value > 0) {
-            r = r.filter((transaction) => {
-                if (transaction.withdrawal && transaction.withdrawal > 0) {
-                    return transaction.withdrawal === amountFilter.value
-                }
-                if (transaction.deposit && transaction.deposit > 0) {
-                    return transaction.deposit === amountFilter.value
-                }
-                return false
-            })
-        }
-
-        return r
+        return getSearchResults(searchIndex, search, typeFilter, amountFilter.value, unreconciledTransactions?.message)
 
     }, [searchIndex, search, typeFilter, amountFilter.value, unreconciledTransactions?.message])
 
@@ -142,6 +111,8 @@ const UnreconciledTransactions = ({ contentHeight }: { contentHeight: number }) 
         onFilterChange()
     }
 
+    const hasFilters = search !== '' || typeFilter !== 'All' || amountFilter.value !== 0
+
     if (isLoading) {
         return <div className="text-sm text-center p-4 text-muted-foreground">{_("Loading")}...</div>
     }
@@ -154,7 +125,7 @@ const UnreconciledTransactions = ({ contentHeight }: { contentHeight: number }) 
                 "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"
             )}>
                 <Search className="w-5 h-5 text-muted-foreground" />
-                <Input placeholder={_("Search")} type='search' onChange={onSearchChange}
+                <Input placeholder={_("Search")} type='search' onChange={onSearchChange} defaultValue={search}
                     className="border-none px-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
                 <div>
                     <span className="text-sm text-muted-foreground text-nowrap whitespace-nowrap">{results?.length} {_(results?.length === 1 ? "result" : "results")}</span>
@@ -206,6 +177,10 @@ const UnreconciledTransactions = ({ contentHeight }: { contentHeight: number }) 
         </div>
 
         {error && <ErrorBanner error={error} />}
+
+        <OlderUnreconciledTransactionsBanner />
+
+        {results.length === 0 && <MissingFiltersBanner text={hasFilters ? _("No transactions found for the given filters.") : _("No unreconciled transactions found")} />}
 
         <Virtuoso
             data={results}
@@ -297,11 +272,48 @@ const VouchersSection = ({ contentHeight }: { contentHeight: number }) => {
     </div>
 }
 
-const OptionsForMultipleTransactions = ({ transactions }: { transactions: UnreconciledTransaction[] }) => {
-
+const useKeyboardShortcuts = () => {
     const setTransferModalOpen = useSetAtom(bankRecTransferModalAtom)
     const setRecordPaymentModalOpen = useSetAtom(bankRecRecordPaymentModalAtom)
     const setRecordJournalEntryModalOpen = useSetAtom(bankRecRecordJournalEntryModalAtom)
+
+    useHotkeys('meta+p', () => {
+        // 
+        setRecordPaymentModalOpen(true)
+    }, {
+        enabled: true,
+        enableOnFormTags: false,
+        preventDefault: true
+    })
+
+    useHotkeys('meta+b', () => {
+        // 
+        setRecordJournalEntryModalOpen(true)
+    }, {
+        enabled: true,
+        enableOnFormTags: false,
+        preventDefault: true
+    })
+
+    useHotkeys('meta+i', () => {
+        // 
+        setTransferModalOpen(true)
+    }, {
+        enabled: true,
+        enableOnFormTags: false,
+        preventDefault: true
+    })
+
+    return {
+        setTransferModalOpen,
+        setRecordPaymentModalOpen,
+        setRecordJournalEntryModalOpen
+    }
+}
+
+const OptionsForMultipleTransactions = ({ transactions }: { transactions: UnreconciledTransaction[] }) => {
+
+    const { setTransferModalOpen, setRecordPaymentModalOpen, setRecordJournalEntryModalOpen } = useKeyboardShortcuts()
 
     return <div className="flex flex-col py-4">
         <Card className="gap-2">
@@ -316,7 +328,6 @@ const OptionsForMultipleTransactions = ({ transactions }: { transactions: Unreco
                 </CardTitle>
             </CardHeader>
             <CardContent>
-
                 <SelectedTransactionsTable />
 
                 <CardAction className="mt-4">
@@ -335,6 +346,10 @@ const OptionsForMultipleTransactions = ({ transactions }: { transactions: Unreco
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         {_("Record a journal entry for expenses, income or split transactions")}
+                                        <KbdGroup className="ml-2">
+                                            <Kbd><KeyboardMetaKeyIcon /></Kbd>
+                                            <Kbd>B</Kbd>
+                                        </KbdGroup>
                                     </TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
@@ -349,6 +364,10 @@ const OptionsForMultipleTransactions = ({ transactions }: { transactions: Unreco
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         {_("Record a payment entry against a customer or supplier")}
+                                        <KbdGroup className="ml-2">
+                                            <Kbd><KeyboardMetaKeyIcon /></Kbd>
+                                            <Kbd>P</Kbd>
+                                        </KbdGroup>
                                     </TooltipContent>
                                 </Tooltip>
 
@@ -364,6 +383,10 @@ const OptionsForMultipleTransactions = ({ transactions }: { transactions: Unreco
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         {_("Record an internal transfer to another bank/credit card/cash account")}
+                                        <KbdGroup className="ml-2">
+                                            <Kbd><KeyboardMetaKeyIcon /></Kbd>
+                                            <Kbd>I</Kbd>
+                                        </KbdGroup>
                                     </TooltipContent>
                                 </Tooltip>
 
@@ -380,9 +403,7 @@ const OptionsForMultipleTransactions = ({ transactions }: { transactions: Unreco
 
 const OptionsForSingleTransaction = ({ transaction, contentHeight }: { transaction: UnreconciledTransaction, contentHeight: number }) => {
 
-    const setTransferModalOpen = useSetAtom(bankRecTransferModalAtom)
-    const setRecordPaymentModalOpen = useSetAtom(bankRecRecordPaymentModalAtom)
-    const setRecordJournalEntryModalOpen = useSetAtom(bankRecRecordJournalEntryModalAtom)
+    const { setTransferModalOpen, setRecordPaymentModalOpen, setRecordJournalEntryModalOpen } = useKeyboardShortcuts()
 
     return <div className="flex flex-col gap-3">
         <TooltipProvider>
@@ -399,6 +420,10 @@ const OptionsForSingleTransaction = ({ transaction, contentHeight }: { transacti
                         </TooltipTrigger>
                         <TooltipContent>
                             {_("Record a payment entry against a customer or supplier")}
+                            <KbdGroup className="ml-2">
+                                <Kbd><KeyboardMetaKeyIcon /></Kbd>
+                                <Kbd>P</Kbd>
+                            </KbdGroup>
                         </TooltipContent>
                     </Tooltip>
                     <Tooltip>
@@ -412,6 +437,10 @@ const OptionsForSingleTransaction = ({ transaction, contentHeight }: { transacti
                         </TooltipTrigger>
                         <TooltipContent>
                             {_("Record a journal entry for expenses, income or split transactions")}
+                            <KbdGroup className="ml-2">
+                                <Kbd><KeyboardMetaKeyIcon /></Kbd>
+                                <Kbd>B</Kbd>
+                            </KbdGroup>
                         </TooltipContent>
                     </Tooltip>
                     <Tooltip >
@@ -425,6 +454,10 @@ const OptionsForSingleTransaction = ({ transaction, contentHeight }: { transacti
                         </TooltipTrigger>
                         <TooltipContent>
                             {_("Record an internal transfer to another bank/credit card/cash account")}
+                            <KbdGroup className="ml-2">
+                                <Kbd><KeyboardMetaKeyIcon /></Kbd>
+                                <Kbd>I</Kbd>
+                            </KbdGroup>
                         </TooltipContent>
                     </Tooltip>
                 </div>
@@ -767,6 +800,60 @@ const MatchBadge = ({ matchType, label }: { matchType: 'full' | 'partial' | 'non
             {label}
         </TooltipContent>
     </Tooltip>
+}
+
+const OlderUnreconciledTransactionsBanner = () => {
+
+    // A banner to show when there are unreconciled transactions for the given bank account before the current selected date
+    const [dates, setDates] = useAtom(bankRecDateAtom)
+    const selectedBank = useAtomValue(selectedBankAccountAtom)
+
+    const { data } = useFrappeGetCall<{
+        message: {
+            count: number,
+            oldest_date: string
+        }
+    }>("mint.apis.transactions.get_older_unreconciled_transactions", {
+        bank_account: selectedBank?.name,
+        from_date: dates.fromDate,
+    }, undefined, {
+        revalidateOnFocus: false,
+    })
+
+    if (data && data.message.count > 0) {
+
+        return <div className="flex flex-col gap-2">
+            <div className="border border-amber-500 rounded-md p-4">
+                <div className="flex items-center gap-2">
+                    <div className="min-w-8">
+                        <AlertCircle className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        {data.message.count > 1 ? (
+                            <span className="text-sm font-medium text-amber-600">{_("There are {0} unreconciled transactions before {1}.", [data.message.count.toString(), formatDate(dates.fromDate)])}</span>
+                        ) : (
+                            <span className="text-sm font-medium text-amber-600">{_("There is one unreconciled transaction before {0}.", [formatDate(dates.fromDate)])}</span>
+                        )}
+                        <span className="text-sm text-amber-600">{_("The opening balance might not match your bank statement. Would you like to reconcile them?")}</span>
+                    </div>
+                    <div className="flex items-center gap-2 w-fit pl-4">
+                        <Button
+                            size='sm'
+                            type='button'
+                            className="shadow-none"
+                            onClick={() => setDates({ fromDate: data.message.oldest_date, toDate: dates.toDate })}
+                            variant='outline'>
+                            <span>{data.message.count > 1 ? _("View older transactions") : _("View older transaction")}</span>
+                            <ArrowRightIcon className="w-4 h-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    return null
+
 }
 
 export default MatchAndReconcile

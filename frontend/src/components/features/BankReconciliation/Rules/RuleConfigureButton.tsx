@@ -55,7 +55,7 @@ const RuleConfigureButton = () => {
                     <ZapIcon />
                 </Button>
             </SheetTrigger>
-            <SheetContent className="min-w-xl">
+            <SheetContent className="min-w-3xl">
                 <SheetHeader>
                     <div className="flex items-center gap-2">
                         {(selectedRule || isNewRule) && <Button variant='ghost' size='icon' className="p-0" onClick={() => {
@@ -100,7 +100,9 @@ const RuleList = ({ setSelectedRule, setIsNewRule }: { setSelectedRule: (rule: s
     )
 
     const onDeleteRule = (ruleID: string) => {
-        toast.promise(db.deleteDoc("Mint Bank Transaction Rule", ruleID), {
+        toast.promise(db.deleteDoc("Mint Bank Transaction Rule", ruleID).then(() => {
+            mutate()
+        }), {
             loading: _("Deleting rule..."),
             success: _("Rule deleted."),
             error: _("Failed to delete rule.")

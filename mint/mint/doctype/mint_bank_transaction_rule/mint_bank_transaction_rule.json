@@ -19,9 +19,12 @@
   "action_section",
   "classify_as",
   "account",
+  "bank_entry_type",
   "column_break_jdyr",
   "party_type",
-  "party"
+  "party",
+  "section_break_zdro",
+  "accounts"
  ],
  "fields": [
   {
@@ -88,8 +91,7 @@
    "fieldname": "account",
    "fieldtype": "Link",
    "label": "Account",
-   "options": "Account",
-   "reqd": 1
+   "options": "Account"
   },
   {
    "fieldname": "column_break_jdyr",
@@ -99,7 +101,7 @@
    "fieldname": "party_type",
    "fieldtype": "Link",
    "label": "Party Type",
-   "options": "Party Type"
+   "options": "DocType"
   },
   {
    "fieldname": "party",
@@ -119,12 +121,28 @@
    "label": "Company",
    "options": "Company",
    "reqd": 1
+  },
+  {
+   "fieldname": "bank_entry_type",
+   "fieldtype": "Select",
+   "label": "Bank Entry Type",
+   "options": "Single Account\nMultiple Accounts"
+  },
+  {
+   "fieldname": "section_break_zdro",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "accounts",
+   "fieldtype": "Table",
+   "label": "Accounts",
+   "options": "Mint Transaction Rule Accounts"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-06 20:59:32.877552",
+ "modified": "2026-01-20 14:12:57.950499",
  "modified_by": "Administrator",
  "module": "Mint",
  "name": "Mint Bank Transaction Rule",
@@ -140,6 +158,30 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
    "share": 1,
    "write": 1
   }

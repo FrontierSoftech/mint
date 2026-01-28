@@ -16,8 +16,11 @@ class MintBankTransactionRule(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 		from mint.mint.doctype.mint_bank_transaction_description_rules.mint_bank_transaction_description_rules import MintBankTransactionDescriptionRules
+		from mint.mint.doctype.mint_transaction_rule_accounts.mint_transaction_rule_accounts import MintTransactionRuleAccounts
 
-		account: DF.Link
+		account: DF.Link | None
+		accounts: DF.Table[MintTransactionRuleAccounts]
+		bank_entry_type: DF.Literal["Single Account", "Multiple Accounts"]
 		classify_as: DF.Literal["Bank Entry", "Payment Entry", "Transfer"]
 		company: DF.Link
 		description_rules: DF.Table[MintBankTransactionDescriptionRules]
@@ -30,6 +33,7 @@ class MintBankTransactionRule(Document):
 		rule_name: DF.Data
 		transaction_type: DF.Literal["Any", "Withdrawal", "Deposit"]
 	# end: auto-generated types
+
 	
 	def before_insert(self):
 		"""Assign the next priority number for the new rule"""
@@ -38,7 +42,7 @@ class MintBankTransactionRule(Document):
 			highest_priority = frappe.db.get_value(
 				"Mint Bank Transaction Rule",
 				filters={"company": self.company},
-				fieldname="MAX(priority)",
+				fieldname="priority",
 				order_by="priority DESC"
 			)
 			
@@ -57,6 +61,23 @@ class MintBankTransactionRule(Document):
 
 			if not self.party:
 				frappe.throw(_("Party is required create a payment entry."))
+			
+			if not self.account:
+				frappe.throw(_("Party account is required to create a payment entry."))
+		
+		if self.classify_as == "Bank Entry":
+			if not self.bank_entry_type or self.bank_entry_type == "Single Account":
+				if not self.account:
+					frappe.throw(_("Please add an account for the Bank Entry rule."))
+			elif self.bank_entry_type == "Multiple Accounts":
+				if not self.accounts:
+					frappe.throw(_("Please configure accounts for the Bank Entry rule."))
+				
+				# Last row should not have any debit or credit set, since it will be computed via formula
+				for index, account in enumerate(self.accounts):
+					if index == len(self.accounts) - 1:
+						if account.debit or account.credit:
+							frappe.throw(_("The last account row must not have any debit or credit amounts set."))
 		
 		# Validate regex
 		for rule in self.description_rules:
@@ -69,3 +90,22 @@ class MintBankTransactionRule(Document):
 		account_company = frappe.db.get_value("Account", self.account, "company")
 		if account_company != self.company:
 			frappe.throw(_("Account company does not match with the rule company."))
+	
+	def on_trash(self):
+		"""
+		Delete the matched rule from the bank transaction
+		"""
+		try:
+			frappe.db.set_value("Bank Transaction", {"matched_rule": self.name}, "matched_rule", None)
+		except Exception as e:
+			pass
+	
+	def after_delete(self):
+		"""
+		Rearrange the priorities of the rules
+		"""
+		rules = frappe.get_all("Mint Bank Transaction Rule", filters={"company": self.company, "name": ["!=", self.name]}, order_by="priority asc")
+		for i, rule in enumerate(rules):
+			frappe.db.set_value("Mint Bank Transaction Rule", rule.name, "priority", i + 1)
+
+
