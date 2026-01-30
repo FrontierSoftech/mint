@@ -243,10 +243,7 @@ def create_bulk_bank_entry_and_reconcile(bank_transactions: list,
                                         posting_date=transactions_details.date,
                                         cheque_no=cheque_no,
                                         user_remark=transactions_details.description,
-                                        entries=[{
-                                            "account": account,
-                                            "amount": transactions_details.unallocated_amount,
-                                        }],
+                                        entries=entries,
                                         voucher_type=("Credit Card Entry" if is_credit_card else "Bank Entry"),
                                         custom_branch=custom_branch,
                                         custom_cost_center=custom_cost_center
@@ -292,30 +289,30 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str,
     })
 
     # Compute accounts for JE 
-    is_withdrawal = bank_transaction.withdrawal > 0.0
+    # is_withdrawal = bank_transaction.withdrawal > 0.0
 
-    if is_withdrawal:
-        bank_entry.append("accounts", {
-            "account": bank_account,
-            "bank_account": bank_transaction.bank_account,
-            "credit_in_account_currency": bank_transaction.unallocated_amount,
-            "credit": bank_transaction.unallocated_amount,
-            "debit_in_account_currency": 0,
-            "debit": 0,
-            "branch": custom_branch,
-            "cost_center": custom_cost_center or default_cost_center,
-        })
-    else:
-        bank_entry.append("accounts", {
-            "account": bank_account,
-            "bank_account": bank_transaction.bank_account,
-            "debit_in_account_currency": bank_transaction.unallocated_amount,
-            "debit": bank_transaction.unallocated_amount,
-            "credit_in_account_currency": 0,
-            "debit": 0,
-            "branch": custom_branch,
-            "cost_center": custom_cost_center or default_cost_center,
-        })
+    # if is_withdrawal:
+    #     bank_entry.append("accounts", {
+    #         "account": bank_account,
+    #         "bank_account": bank_transaction.bank_account,
+    #         "credit_in_account_currency": bank_transaction.unallocated_amount,
+    #         "credit": bank_transaction.unallocated_amount,
+    #         "debit_in_account_currency": 0,
+    #         "debit": 0,
+    #         "branch": custom_branch,
+    #         "cost_center": custom_cost_center or default_cost_center,
+    #     })
+    # else:
+    #     bank_entry.append("accounts", {
+    #         "account": bank_account,
+    #         "bank_account": bank_transaction.bank_account,
+    #         "debit_in_account_currency": bank_transaction.unallocated_amount,
+    #         "debit": bank_transaction.unallocated_amount,
+    #         "credit_in_account_currency": 0,
+    #         "debit": 0,
+    #         "branch": custom_branch,
+    #         "cost_center": custom_cost_center or default_cost_center,
+    #     })
     
     if not dimensions:
         dimensions = {}
@@ -334,10 +331,10 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str,
         bank_entry.append("accounts", {
             "account": entry["account"],
             # TODO: Multi currency support
-            "debit_in_account_currency": debit,
-            "credit_in_account_currency": credit,
-            "debit": debit,
-            "credit": credit,
+            "debit_in_account_currency": entry.get("debit"),
+            "credit_in_account_currency": entry.get("credit"),
+            "debit": entry.get("debit"),
+            "credit": entry.get("credit"),
             "cost_center": entry.get("cost_center") or custom_cost_center,
             "branch": entry.get("branch") or custom_branch,
             "party_type": entry.get("party_type") if entry.get("party") else None,

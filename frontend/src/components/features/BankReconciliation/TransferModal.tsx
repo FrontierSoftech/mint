@@ -19,7 +19,7 @@ import { AccountFormField, DataField, DateField, SmallTextField, LinkFormField }
 import SelectedTransactionsTable from './SelectedTransactionsTable'
 import { useCurrentCompany } from '@/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/date'
-import { useMemo, useContext, ChangeEvent} from 'react'
+import { useMemo, useContext, ChangeEvent, useState} from 'react'
 import { BANK_LOGOS } from './logos'
 import { formatCurrency } from '@/lib/numbers'
 import { Label } from '@/components/ui/label'
