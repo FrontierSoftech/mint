@@ -20,8 +20,6 @@ import SelectedTransactionsTable from './SelectedTransactionsTable'
 import { useCurrentCompany } from '@/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/date'
 import { useMemo, useContext, ChangeEvent, useState} from 'react'
-import { BANK_LOGOS } from './logos'
-import { useContext, useMemo, useState } from 'react'
 import { formatCurrency } from '@/lib/numbers'
 import { Label } from '@/components/ui/label'
 import { FileDropzone } from '@/components/ui/file-dropzone'
@@ -91,8 +89,6 @@ const BulkInternalTransferForm = ({ transactions }: { transactions: Unreconciled
             bank_account: data.bank_account,
             branch: data.branch,
             cost_center: data.cost_center
-        }).then(() => {
-            bank_account: data.bank_account
         }).then(({ message }) => {
             addToActionLog({
                 type: 'transfer',
