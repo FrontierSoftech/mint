@@ -96,8 +96,6 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
             account: data.account,
             custom_branch: data.custom_branch,
             custom_cost_center: data.custom_cost_center
-        }).then(() => {
-            account: data.account
         }).then(({ message }) => {
 
             addToActionLog({
