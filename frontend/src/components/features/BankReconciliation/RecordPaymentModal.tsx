@@ -109,8 +109,6 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
             account: data.account,
             branch: data.branch,
             cost_center: data.cost_center
-        }).then(() => {
-            account: data.account
         }).then(({ message }) => {
 
             addToActionLog({
