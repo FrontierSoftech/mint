@@ -15,10 +15,12 @@ import { cn } from '@/lib/utils'
 import { ArrowRight, Banknote, Landmark, BadgeCheck, Calendar, ArrowUpRight, ArrowDownRight, CheckIcon, CheckCircle } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Form } from '@/components/ui/form'
-import { AccountFormField, DataField, DateField, SmallTextField } from '@/components/ui/form-elements'
+import { AccountFormField, DataField, DateField, SmallTextField, LinkFormField } from '@/components/ui/form-elements'
 import SelectedTransactionsTable from './SelectedTransactionsTable'
 import { useCurrentCompany } from '@/hooks/useCurrentCompany'
 import { formatDate } from '@/lib/date'
+import { useMemo, useContext, ChangeEvent, useState} from 'react'
+import { BANK_LOGOS } from './logos'
 import { useContext, useMemo, useState } from 'react'
 import { formatCurrency } from '@/lib/numbers'
 import { Label } from '@/components/ui/label'
@@ -70,7 +72,9 @@ const TransferModalContent = () => {
 const BulkInternalTransferForm = ({ transactions }: { transactions: UnreconciledTransaction[] }) => {
 
     const form = useForm<{
-        bank_account: string
+        bank_account: string,
+        branch: string,
+        cost_center: string
     }>()
 
     const setIsOpen = useSetAtom(bankRecTransferModalAtom)
@@ -80,10 +84,14 @@ const BulkInternalTransferForm = ({ transactions }: { transactions: Unreconciled
     const onReconcile = useRefreshUnreconciledTransactions()
     const addToActionLog = useUpdateActionLog()
 
-    const onSubmit = (data: { bank_account: string }) => {
+    const onSubmit = (data: { bank_account: string , branch: string, cost_center:string}) => {
 
         createPaymentEntry({
             bank_transaction_names: transactions.map((transaction) => transaction.name),
+            bank_account: data.bank_account,
+            branch: data.branch,
+            cost_center: data.cost_center
+        }).then(() => {
             bank_account: data.bank_account
         }).then(({ message }) => {
             addToActionLog({
@@ -132,6 +140,30 @@ const BulkInternalTransferForm = ({ transactions }: { transactions: Unreconciled
                 <SelectedTransactionsTable />
 
                 <BankOrCashPicker company={company} bankAccount={transactions[0].bank_account ?? ''} onAccountChange={onAccountChange} selectedAccount={selectedAccount} />
+
+                {/* <LinkFormField
+                    name={`branch`}
+                    label={"Branch"}
+                    // rules={{
+                    //     onChange
+                    // }}
+                    // // Show the party name if it's different from the party - usually the case when a naming series is used
+                    // formDescription={party_name !== party ? party_name : undefined}
+                    doctype={'Branch'}
+
+                /> */}
+                <BranchField />
+
+                <LinkFormField
+                    name={`cost_center`}
+                    label={"Cost Center"}
+                    // rules={{
+                    //     onChange
+                    // }}
+                    // // Show the party name if it's different from the party - usually the case when a naming series is used
+                    // formDescription={party_name !== party ? party_name : undefined}
+                    doctype={'Cost Center'}
+                />
 
                 <DialogFooter>
                     <DialogClose asChild>
@@ -307,6 +339,27 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
                                 isRequired
                                 inputProps={{ autoFocus: false }}
                             />
+                            {/* <LinkFormField
+                                name={`branch`}
+                                label={"Branch"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Branch'}
+                            /> */}
+                            <BranchField />
+                            <LinkFormField
+                                name={`cost_center`}
+                                label={"Cost Center"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Cost Center'}
+                            />
                         </div>
                         <DataField name='reference_no' label={_("Reference")} isRequired inputProps={{ autoFocus: false }} />
                     </div>
@@ -375,6 +428,38 @@ const InternalTransferForm = ({ selectedBankAccount, selectedTransaction }: { se
     </Form>
 }
 
+const BranchField = () => {
+
+    const { setValue } = useFormContext<PaymentEntry>()
+
+    const { call } = useContext(FrappeContext) as FrappeConfig
+
+    // const branch = useWatch({ control, name: 'branch' }) 
+
+    const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+        // Fetch the party and account
+        if (event.target.value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: event.target.value
+            }).then((res) => {
+                setValue('cost_center', res.message.cost_center)
+            })
+        } else {
+            // Clear the party and account
+            setValue('cost_center', '')
+        }
+    }
+
+    return <LinkFormField
+        name={`branch`}
+        label={"Branch"}
+        rules={{
+            onChange
+        }}    
+        doctype={'Branch'}
+
+    />
+}
 
 const BankOrCashPicker = ({ bankAccount, onAccountChange, selectedAccount, company }: { selectedAccount: string, bankAccount: string, onAccountChange: (account: string) => void, company: string }) => {
 

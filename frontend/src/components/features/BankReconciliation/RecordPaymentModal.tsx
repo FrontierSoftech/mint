@@ -88,6 +88,8 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
         party_type: PaymentEntry['party_type'],
         party: PaymentEntry['party'],
         party_name: PaymentEntry['party_name'],
+        branch: PaymentEntry['branch'],
+        cost_center: PaymentEntry['cost_center'],
         /** GL account that's paid from or paid to */
         account: string
         mode_of_payment: PaymentEntry['mode_of_payment']
@@ -97,6 +99,7 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
 
     const onReconcile = useRefreshUnreconciledTransactions()
 
+    const onSubmit = (data: { cost_center: PaymentEntry['cost_center'], branch: PaymentEntry['branch'], party_type: PaymentEntry['party_type'], party: PaymentEntry['party'], account: string, mode_of_payment: PaymentEntry['mode_of_payment'] }) => {
     const addToActionLog = useUpdateActionLog()
 
     const onSubmit = (data: { party_type: PaymentEntry['party_type'], party: PaymentEntry['party'], account: string, mode_of_payment: PaymentEntry['mode_of_payment'] }) => {
@@ -105,6 +108,10 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
             bank_transaction_names: transactions.map((transaction) => transaction.name),
             party_type: data.party_type,
             party: data.party,
+            account: data.account,
+            branch: data.branch,
+            cost_center: data.cost_center
+        }).then(() => {
             account: data.account
         }).then(({ message }) => {
 
@@ -224,6 +231,29 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
 
 
                     </div>
+
+                    {/* <LinkFormField
+                        name={`branch`}
+                        label={"Branch"}
+                        // rules={{
+                        //     onChange
+                        // }}
+                        // // Show the party name if it's different from the party - usually the case when a naming series is used
+                        // formDescription={party_name !== party ? party_name : undefined}
+                        doctype={"Branch"}
+                    /> */}
+                    <BranchField/>
+                    <LinkFormField
+                        name={`cost_center`}
+                        label={"Cost Center"}
+                        // rules={{
+                        //     onChange
+                        // }}
+                        // // Show the party name if it's different from the party - usually the case when a naming series is used
+                        // formDescription={party_name !== party ? party_name : undefined}
+                        doctype={"Cost Center"}
+
+                    />
 
                     <div className="col-span-2">
                         <AccountFormField
@@ -401,6 +431,7 @@ const PaymentEntryForm = ({ selectedTransaction, selectedBankAccount }: { select
             onClose()
         })
     }
+    
 
     if (isUploading && isCompleted) {
         return <FileUploadBanner uploadProgress={uploadProgress} />
@@ -434,6 +465,30 @@ const PaymentEntryForm = ({ selectedTransaction, selectedBankAccount }: { select
                             <div className="col-span-3">
                                 <PartyField />
                             </div>
+
+                            {/* <LinkFormField
+                                name={`branch`}
+                                label={"Branch"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Branch'}
+
+                            /> */}
+                            <BranchField/>
+                            <LinkFormField
+                                name={`cost_center`}
+                                label={"Cost Center"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Cost Center'}
+
+                            />
 
                             <div className="col-span-2">
                                 <AccountDropdown isWithdrawal={isWithdrawal} />
@@ -512,10 +567,7 @@ const PartyField = () => {
 
     const { control, setValue } = useFormContext<PaymentEntry>()
 
-    const party_type = useWatch({
-        control,
-        name: `party_type`
-    })
+    const party_type = useWatch({ control, name: `party_type` })
 
     const { call } = useContext(FrappeContext) as FrappeConfig
 
@@ -577,6 +629,38 @@ const PartyField = () => {
         // Show the party name if it's different from the party - usually the case when a naming series is used
         formDescription={party_name !== party ? party_name : undefined}
         doctype={party_type}
+
+    />
+}
+const BranchField = () => {
+
+    const { setValue } = useFormContext<PaymentEntry>()
+
+    const { call } = useContext(FrappeContext) as FrappeConfig
+
+    // const branch = useWatch({ control, name: 'branch' }) 
+
+    const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+        // Fetch the party and account
+        if (event.target.value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: event.target.value
+            }).then((res) => {
+                setValue('cost_center', res.message.cost_center)
+            })
+        } else {
+            // Clear the party and account
+            setValue('cost_center', '')
+        }
+    }
+
+    return <LinkFormField
+        name={`branch`}
+        label={"Branch"}
+        rules={{
+            onChange
+        }}    
+        doctype={'Branch'}
 
     />
 }
@@ -1126,8 +1210,9 @@ const FetchInvoicesModal = ({ onClose }: { onClose: () => void }) => {
 const OtherChargesSection = ({ currency }: { currency: string }) => {
 
     const { setTotalAllocatedAmount } = usePaymentEntryCalculations()
-    const { getValues, control } = useFormContext<PaymentEntry>()
-
+    const { getValues, setValue, control } = useFormContext<PaymentEntry>()
+    
+    const { call } = useContext(FrappeContext) as FrappeConfig
     const { fields, append, remove } = useFieldArray({
         control: control,
         name: 'deductions'
@@ -1164,13 +1249,26 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
 
         append({
             account: '',
-            cost_center: getCompanyCostCenter(getValues('company')),
+            cost_center: '',
             description: '',
             amount: 0
         } as PaymentEntryDeduction)
 
 
-    }
+    }   
+
+    const onBranchChange = (value: string, index: number) => {
+        // Get the account for the party type
+        if (value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: value
+            }).then((res) => {
+                setValue(`deductions.${index}.cost_center`, res.message.cost_center)
+            })      
+        }else {
+            setValue(`deductions.${index}.cost_center`, '')
+        }
+    } 
 
     return <div className="flex flex-col gap-2">
         <div className="flex gap-2 items-center">
@@ -1187,6 +1285,7 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
                         checked={selectedRows.length > 0 && selectedRows.length === fields.length}
                         onCheckedChange={onSelectAll} /></TableHead>
                     <TableHead>{_("Account")} <span className="text-destructive">*</span></TableHead>
+                    <TableHead>{_("Branch")} <span className="text-destructive">*</span></TableHead>
                     <TableHead>{_("Cost Center")} <span className="text-destructive">*</span></TableHead>
                     <TableHead>{_("Description")}</TableHead>
                     <TableHead className="text-right">{_("Amount")} <span className="text-destructive">*</span></TableHead>
@@ -1215,6 +1314,28 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
                                 isRequired
                                 hideLabel
                             />
+                        </TableCell>
+                        <TableCell className="align-top">
+                            {/* <LinkFormField
+                                doctype="Branch"
+                                reference_doctype="Payment Entry Deduction"
+                                // customQuery={{
+                                //     query: "erpnext.controllers.queries.get_filtered_dimensions",
+                                //     filters: {
+                                //         "dimension": "cost_center",
+                                //         "company": getValues('company'),
+                                //     }
+                                // }}
+                                rules={{
+                                    required: _("Branch is required"),
+                                }}
+                                
+                                name={`deductions.${index}.branch`}
+                                label={_("Branch")}
+                                buttonClassName="min-w-48"
+                                hideLabel
+                            /> */}
+                            <BranchChildField index={index} onChange={onBranchChange} />
                         </TableCell>
                         <TableCell className="align-top">
                             <LinkFormField
@@ -1276,6 +1397,23 @@ const OtherChargesSection = ({ currency }: { currency: string }) => {
             </div>
         </div>
     </div>
+}
+
+const BranchChildField = ({ index, onChange }: { index: number, onChange: (value: string, index: number) => void }) => {
+
+    return <LinkFormField
+        name={`deductions.${index}.branch`}
+        label={"Branch"}
+        buttonClassName="min-w-48"  
+        hideLabel       
+        rules={{
+            onChange: (e) => {
+                const selectedValue = e?.target?.value ?? '';
+                onChange(selectedValue, index);
+            }
+        }}    
+        doctype={'Branch'}
+    />
 }
 
 const TotalDeductions = ({ currency }: { currency: string }) => {

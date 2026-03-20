@@ -5,7 +5,7 @@ import _ from "@/lib/translate"
 import { UnreconciledTransaction, useGetRuleForTransaction, useRefreshUnreconciledTransactions, useUpdateActionLog } from "./utils"
 import { useFieldArray, useForm, useFormContext, useWatch } from "react-hook-form"
 import { JournalEntry } from "@/types/Accounts/JournalEntry"
-import { getCompanyCostCenter, getCompanyCurrency } from "@/lib/company"
+import { getCompanyCostCenter ,getCompanyCurrency } from "@/lib/company"
 import { FrappeConfig, FrappeContext, useFrappePostCall } from "frappe-react-sdk"
 import { toast } from "sonner"
 import ErrorBanner from "@/components/ui/error-banner"
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import SelectedTransactionDetails from "./SelectedTransactionDetails"
 import { AccountFormField, CurrencyFormField, DataField, DateField, LinkFormField, PartyTypeFormField, SmallTextField } from "@/components/ui/form-elements"
 import { Form } from "@/components/ui/form"
-import { useCallback, useContext, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useMemo, useRef, useState, ChangeEvent } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowDownRight, ArrowUpRight, Plus, Trash2 } from "lucide-react"
@@ -26,6 +26,7 @@ import { BankTransaction } from "@/types/Accounts/BankTransaction"
 import FileUploadBanner from "@/components/common/FileUploadBanner"
 import { Label } from "@/components/ui/label"
 import { FileDropzone } from "@/components/ui/file-dropzone"
+
 
 const BankEntryModal = () => {
 
@@ -73,6 +74,8 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
 
     const form = useForm<{
         account: string
+        custom_branch: string
+        custom_cost_center: string
     }>({
         defaultValues: {
             account: ''
@@ -86,10 +89,14 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
 
     const setIsOpen = useSetAtom(bankRecRecordJournalEntryModalAtom)
 
-    const onSubmit = (data: { account: string }) => {
+    const onSubmit = (data: { account: string , custom_branch: string, custom_cost_center: string }) => {
 
         call({
             bank_transactions: selectedTransactions.map(transaction => transaction.name),
+            account: data.account,
+            custom_branch: data.custom_branch,
+            custom_cost_center: data.custom_cost_center
+        }).then(() => {
             account: data.account
         }).then(({ message }) => {
 
@@ -138,6 +145,33 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
                         isRequired
                     />
                 </div>
+                <div className="grid grid-cols-3 gap-4">
+                    {/* <LinkFormField
+                        name={`custom_branch`}
+                        label={"Branch"}
+                        // rules={{
+                        //     onChange
+                        // }}
+                        // // Show the party name if it's different from the party - usually the case when a naming series is used
+                        // formDescription={party_name !== party ? party_name : undefined}
+                        doctype={'Branch'}
+
+                    /> */}
+                    <BranchField />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                    <LinkFormField
+                        name={`custom_cost_center`}
+                        label={"Cost Center"}
+                        // rules={{
+                        //     onChange
+                        // }}
+                        // // Show the party name if it's different from the party - usually the case when a naming series is used
+                        // formDescription={party_name !== party ? party_name : undefined}
+                        doctype={'Cost Center'}
+
+                    />
+                </div>
 
                 <DialogFooter>
                     <DialogClose asChild>
@@ -151,7 +185,7 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
 }
 
 
-interface BankEntryFormData extends Pick<JournalEntry, 'voucher_type' | 'cheque_date' | 'posting_date' | 'cheque_no' | 'user_remark'> {
+interface BankEntryFormData extends Pick<JournalEntry, 'voucher_type' | 'cheque_date' | 'posting_date' | 'cheque_no' | 'user_remark' |'custom_branch' | 'custom_cost_center'> {
     entries: JournalEntry['accounts']
 }
 
@@ -411,6 +445,29 @@ const BankEntryForm = ({ selectedTransaction }: { selectedTransaction: Unreconci
                                     required: _("Reference Date is required"),
                                 }}
                             />
+                            {/* <LinkFormField
+                                name={`custom_branch`}
+                                label={"Branch"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Branch'}
+
+                            /> */}
+                            <BranchField />
+                            <LinkFormField
+                                name={`custom_cost_center`}
+                                label={"Cost Center"}
+                                // rules={{
+                                //     onChange
+                                // }}
+                                // // Show the party name if it's different from the party - usually the case when a naming series is used
+                                // formDescription={party_name !== party ? party_name : undefined}
+                                doctype={'Cost Center'}
+
+                            />
                         </div>
                         <DataField name='cheque_no' label={_("Reference")} isRequired inputProps={{ autoFocus: false }}
                             rules={{
@@ -450,7 +507,40 @@ const BankEntryForm = ({ selectedTransaction }: { selectedTransaction: Unreconci
 
 }
 
-const Entries = ({ company, isWithdrawal, currency }: { company: string, isWithdrawal: boolean, currency: string }) => {
+const BranchField = () => {
+
+    const { setValue } = useFormContext<JournalEntry>()
+
+    const { call } = useContext(FrappeContext) as FrappeConfig
+
+    // const branch = useWatch({ control, name: 'branch' }) 
+
+    const onChange = (event: ChangeEvent<HTMLInputElement>) => {
+        // Fetch the party and account
+        if (event.target.value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: event.target.value
+            }).then((res) => {
+                setValue('custom_cost_center', res.message.cost_center)
+            })
+        } else {
+            // Clear the party and account
+            setValue('custom_cost_center', '')
+        }
+    }
+
+    return <LinkFormField
+        name={`custom_branch`}
+        label={"Branch"}
+        rules={{
+            onChange
+        }}    
+        doctype={'Branch'}
+
+    />
+}
+
+const Entries = ({ company, isWithdrawal, amount, currency }: { company: string, isWithdrawal: boolean, amount?: number, currency: string }) => {
 
     const { getValues, setValue, control } = useFormContext<BankEntryFormData>()
 
@@ -479,6 +569,19 @@ const Entries = ({ company, isWithdrawal, currency }: { company: string, isWithd
             setValue(`entries.${index}.account`, '')
         }
     }
+
+    const onBranchChange = (value: string, index: number) => {
+        // Get the account for the party type
+        if (value) {
+            call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                branch: value
+            }).then((res) => {
+                setValue(`entries.${index}.cost_center`, res.message.cost_center)
+            })      
+        }else {
+            setValue(`entries.${index}.cost_center`, '')
+        }
+    }   
 
     const onAccountChange = (value: string, index: number) => {
         // If it's an income or expense account, get the default cost center
@@ -602,6 +705,7 @@ const Entries = ({ company, isWithdrawal, currency }: { company: string, isWithd
                         onCheckedChange={onSelectAll} /></TableHead>
                     <TableHead>{_("Party")}</TableHead>
                     <TableHead>{_("Account")}</TableHead>
+                    <TableHead>{_("Branch")}</TableHead>
                     <TableHead>{_("Cost Center")}</TableHead>
                     <TableHead>{_("Remarks")}</TableHead>
                     <TableHead className="text-right">{_("Debit")}</TableHead>
@@ -656,6 +760,17 @@ const Entries = ({ company, isWithdrawal, currency }: { company: string, isWithd
                                 isRequired
                                 hideLabel
                             />
+                        </TableCell>
+                        <TableCell className="align-top">
+                            {/* <LinkFormField
+                                doctype="Branch"
+                                name={`entries.${index}.branch`}
+                                label={_("Branch")}
+                                // filters={[["company", "=", company], ["is_group", "=", 0], ["disabled", "=", 0]]}
+                                buttonClassName="min-w-48"
+                                hideLabel
+                            /> */}
+                            <BranchChildField index={index} onChange={onBranchChange} />
                         </TableCell>
                         <TableCell className="align-top">
                             <LinkFormField
@@ -772,7 +887,24 @@ const PartyField = ({ index, onChange, readOnly }: { index: number, onChange: (v
     />
 }
 
-const Summary = ({ currency, addRow }: { currency: string, addRow: () => void }) => {
+const BranchChildField = ({ index, onChange }: { index: number, onChange: (value: string, index: number) => void }) => {
+
+    return <LinkFormField
+        name={`entries.${index}.branch`}
+        label={"Branch"}
+        buttonClassName="min-w-48"  
+        hideLabel       
+        rules={{
+            onChange: (e) => {
+                const selectedValue = e?.target?.value ?? '';
+                onChange(selectedValue, index);
+            }
+        }}    
+        doctype={'Branch'}
+    />
+}
+
+const Summary = ({ amount, currency, addRow }: { amount?: number, currency: string, addRow: () => void }) => {
 
     const { control } = useFormContext<BankEntryFormData>()
 

@@ -96,7 +96,10 @@ def undo_reconciliation_action(bank_transaction_id: str | int, voucher_type: str
 
 @frappe.whitelist(methods=["POST"])
 def create_bulk_internal_transfer(bank_transaction_names: list[str|int], 
-                                  bank_account: str):
+                                  bank_account: str,
+                                  branch: str,
+                                  cost_center: str):
+
     """
         Create an internal transfer for multiple bank transactions
     """
@@ -124,6 +127,10 @@ def create_bulk_internal_transfer(bank_transaction_names: list[str|int],
                                  reference_date=bank_transaction.date,
                                  reference_no=reference_no,
                                  paid_from=paid_from,
+                                 paid_to=paid_to,
+                                 branch=branch,
+                                 cost_center=cost_center,
+                                 )
                                  paid_to=paid_to,)
         
         output.append(final_transaction)
@@ -135,6 +142,8 @@ def create_internal_transfer(bank_transaction_name: str|int,
                              posting_date: str | datetime.date, 
                              reference_date: str | datetime.date, 
                              reference_no: str, 
+                             branch: str, 
+                             cost_center: str, 
                              paid_from: str, 
                              paid_to: str,
                              custom_remarks: bool = False,
@@ -159,6 +168,8 @@ def create_internal_transfer(bank_transaction_name: str|int,
     pe.posting_date = posting_date
     pe.reference_date = reference_date
     pe.reference_no = reference_no
+    pe.branch = branch
+    pe.cost_center = cost_center
     pe.custom_remarks = custom_remarks
     pe.paid_amount = bank_transaction.unallocated_amount
     pe.received_amount = bank_transaction.unallocated_amount
@@ -205,7 +216,11 @@ def create_internal_transfer(bank_transaction_name: str|int,
 
 @frappe.whitelist(methods=['POST'])
 def create_bulk_bank_entry_and_reconcile(bank_transactions: list[str|int], 
-                                         account: str):
+                                         account: str,
+                                         custom_branch: str,
+                                         custom_cost_center: str,
+                                         ):
+
     """
      Create bank entries for all transactions and reconcile them
     """
@@ -263,7 +278,11 @@ def create_bulk_bank_entry_and_reconcile(bank_transactions: list[str|int],
                                         cheque_no=cheque_no,
                                         user_remark=transactions_details.description,
                                         entries=entries,
-                                        voucher_type=("Credit Card Entry" if is_credit_card else "Bank Entry"))
+                                        voucher_type=("Credit Card Entry" if is_credit_card else "Bank Entry"),
+                                        custom_branch=custom_branch,
+                                        custom_cost_center=custom_cost_center
+                                        )
+                              
         
         output.append(final_transaction)
     
@@ -276,6 +295,8 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str | int,
                                     cheque_date: str | datetime.date,
                                     posting_date: str | datetime.date,
                                     cheque_no: str,
+                                    custom_branch: str,
+                                    custom_cost_center: str,
                                     entries: list,
                                     user_remark: str = None,
                                     voucher_type: str = "Bank Entry",
@@ -304,7 +325,35 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str | int,
         "posting_date": posting_date,
         "cheque_no": cheque_no,
         "user_remark": user_remark,
+        "custom_branch": custom_branch,
+        "custom_cost_center": custom_cost_center,
     })
+
+    # Compute accounts for JE 
+    # is_withdrawal = bank_transaction.withdrawal > 0.0
+
+    # if is_withdrawal:
+    #     bank_entry.append("accounts", {
+    #         "account": bank_account,
+    #         "bank_account": bank_transaction.bank_account,
+    #         "credit_in_account_currency": bank_transaction.unallocated_amount,
+    #         "credit": bank_transaction.unallocated_amount,
+    #         "debit_in_account_currency": 0,
+    #         "debit": 0,
+    #         "branch": custom_branch,
+    #         "cost_center": custom_cost_center or default_cost_center,
+    #     })
+    # else:
+    #     bank_entry.append("accounts", {
+    #         "account": bank_account,
+    #         "bank_account": bank_transaction.bank_account,
+    #         "debit_in_account_currency": bank_transaction.unallocated_amount,
+    #         "debit": bank_transaction.unallocated_amount,
+    #         "credit_in_account_currency": 0,
+    #         "debit": 0,
+    #         "branch": custom_branch,
+    #         "cost_center": custom_cost_center or default_cost_center,
+    #     })
     
     if not dimensions:
         dimensions = {}
@@ -327,6 +376,8 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str | int,
             "credit_in_account_currency": entry.get("credit"),
             "debit": entry.get("debit"),
             "credit": entry.get("credit"),
+            "cost_center": entry.get("cost_center") or custom_cost_center,
+            "branch": entry.get("branch") or custom_branch,
             "party_type": entry.get("party_type") if entry.get("party") else None,
             "party": entry.get("party"),
             "user_remark": entry.get("user_remark"),
@@ -358,6 +409,8 @@ def create_bulk_payment_entry_and_reconcile(bank_transaction_names: list[str | i
                                             party_type: str, 
                                             party: str | int, 
                                             account: str,
+                                            branch: str,
+                                            cost_center: str,
                                             mode_of_payment: str | None = None):
     """
         Create a payment entry and reconcile it with the bank transaction
@@ -386,6 +439,8 @@ def create_bulk_payment_entry_and_reconcile(bank_transaction_names: list[str | i
             "company": bank_transaction.company,
             "mode_of_payment": mode_of_payment,
             "party_type": party_type,
+            "branch": branch,
+            "cost_center": cost_center,
             "party": party,
             "paid_from": paid_from,
             "paid_to": paid_to,
@@ -467,6 +522,16 @@ def get_party_details(company: str, party_type: str, party: str | int):
     }
 
 @frappe.whitelist(methods=["GET"])
+def get_cost_center(branch: str):
+    if branch:
+        cost_center = frappe.db.get_value('Branch', branch, 'custom_cost_center')
+
+        return {
+            "cost_center": cost_center
+        }
+
+@frappe.whitelist(methods=["GET"])
+
 def search_for_transfer_transaction(transaction_id: str | int):
     """
     When users try to create a transfer, we could help them by searching for the mirror transaction.

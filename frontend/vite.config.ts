@@ -10,7 +10,14 @@ export default defineConfig({
 	server: {
 		port: 8080,
 		host: '0.0.0.0',
-		proxy: proxyOptions
+		proxy: proxyOptions,
+		watch: {
+			usePolling: true,   // more compatible but slightly slower
+			interval: 1000      // check for changes every second
+		},
+		allowedHosts:[
+			'new.frontiersoftech.com'
+		]
 	},
 	resolve: {
 		alias: {
