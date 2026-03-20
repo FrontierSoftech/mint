@@ -131,7 +131,6 @@ def create_bulk_internal_transfer(bank_transaction_names: list[str|int],
                                  branch=branch,
                                  cost_center=cost_center,
                                  )
-                                 paid_to=paid_to,)
         
         output.append(final_transaction)
     
