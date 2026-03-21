@@ -99,8 +99,9 @@ const BulkPaymentEntryForm = ({ transactions }: { transactions: UnreconciledTran
 
     const onReconcile = useRefreshUnreconciledTransactions()
 
-    const onSubmit = (data: { cost_center: PaymentEntry['cost_center'], branch: PaymentEntry['branch'], party_type: PaymentEntry['party_type'], party: PaymentEntry['party'], account: string, mode_of_payment: PaymentEntry['mode_of_payment'] }) => {
     const addToActionLog = useUpdateActionLog()
+    
+    const onSubmit = (data: { cost_center: PaymentEntry['cost_center'], branch: PaymentEntry['branch'], party_type: PaymentEntry['party_type'], party: PaymentEntry['party'], account: string, mode_of_payment: PaymentEntry['mode_of_payment'] }) => {
 
         createPaymentEntry({
             bank_transaction_names: transactions.map((transaction) => transaction.name),
