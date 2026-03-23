@@ -19,11 +19,11 @@ const StatementImport = () => {
             <Tooltip>
                 <TooltipTrigger asChild>
                     <DialogTrigger asChild>
-                        <Button variant={'outline'} size='icon'>
-                            <Link to="/statement-importer">
+                        <Link to="/statement-importer">
+                            <Button variant={'outline'} size='icon'>
                                 <LandmarkIcon />
-                            </Link>
-                        </Button>
+                            </Button>
+                        </Link>
                     </DialogTrigger>
                 </TooltipTrigger>
                 <TooltipContent>
