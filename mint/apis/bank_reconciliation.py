@@ -530,6 +530,15 @@ def get_cost_center(branch: str):
         }
 
 @frappe.whitelist(methods=["GET"])
+def get_branch(customer: str):
+    if customer:
+        branch = frappe.db.get_value('Customer', customer, 'custom_branch')
+
+        return {
+            "branch": branch
+        }
+
+@frappe.whitelist(methods=["GET"])
 
 def search_for_transfer_transaction(transaction_id: str | int):
     """

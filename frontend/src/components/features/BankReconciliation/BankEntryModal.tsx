@@ -5,7 +5,7 @@ import _ from "@/lib/translate"
 import { UnreconciledTransaction, useGetRuleForTransaction, useRefreshUnreconciledTransactions, useUpdateActionLog } from "./utils"
 import { useFieldArray, useForm, useFormContext, useWatch } from "react-hook-form"
 import { JournalEntry } from "@/types/Accounts/JournalEntry"
-import { getCompanyCostCenter ,getCompanyCurrency, getCompany } from "@/lib/company"
+import { getCompanyCostCenter, getCompanyCurrency, getCompany } from "@/lib/company"
 import { FrappeConfig, FrappeContext, useFrappePostCall, useFrappeGetCall } from "frappe-react-sdk"
 import { toast } from "sonner"
 import ErrorBanner from "@/components/ui/error-banner"
@@ -28,7 +28,9 @@ import { Label } from "@/components/ui/label"
 import { FileDropzone } from "@/components/ui/file-dropzone"
 import { MissingFiltersBanner } from "./MissingFiltersBanner"
 import MarkdownRenderer from "@/components/ui/markdown"
-
+import { formatDate } from "@/lib/date"
+import DateFilter from "./DateFilter"
+import dayjs from "dayjs"
 
 const BankEntryModal = () => {
 
@@ -91,7 +93,7 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
 
     const setIsOpen = useSetAtom(bankRecRecordJournalEntryModalAtom)
 
-    const onSubmit = (data: { account: string , custom_branch: string, custom_cost_center: string }) => {
+    const onSubmit = (data: { account: string, custom_branch: string, custom_cost_center: string }) => {
 
         call({
             bank_transactions: selectedTransactions.map(transaction => transaction.name),
@@ -185,7 +187,7 @@ const BulkBankEntryForm = ({ selectedTransactions }: { selectedTransactions: Unr
 }
 
 
-interface BankEntryFormData extends Pick<JournalEntry, 'voucher_type' | 'cheque_date' | 'posting_date' | 'cheque_no' | 'user_remark' |'custom_branch' | 'custom_cost_center'| 'company'> {
+interface BankEntryFormData extends Pick<JournalEntry, 'voucher_type' | 'cheque_date' | 'posting_date' | 'cheque_no' | 'user_remark' | 'custom_branch' | 'custom_cost_center' | 'company'> {
     entries: JournalEntry['accounts']
 }
 
@@ -535,7 +537,7 @@ const BranchField = () => {
         label={"Branch"}
         rules={{
             onChange
-        }}    
+        }}
         doctype={'Branch'}
 
     />
@@ -573,6 +575,29 @@ const Entries = ({ company, isWithdrawal, amount, currency }: { company: string,
         } else {
             setValue(`entries.${index}.account`, '')
         }
+
+        if (value && getValues(`entries.${index}.party_type`) === 'Customer') {
+            call.get('mint.apis.bank_reconciliation.get_branch', {
+                customer: value
+            }).then((res) => {
+                setValue(`entries.${index}.branch`, res.message.branch)
+
+                if (res.message.branch) {
+                    call.get('mint.apis.bank_reconciliation.get_cost_center', {
+                        branch: res.message.branch
+                    }).then((res) => {
+                        setValue(`entries.${index}.cost_center`, res.message.cost_center)
+                    })
+                } else {
+                    setValue(`entries.${index}.branch`, '')
+                }
+            })
+        } else {
+            setValue(`entries.${index}.cost_center`, '')
+        }
+
+
+
     }
 
     const onBranchChange = (value: string, index: number) => {
@@ -582,11 +607,11 @@ const Entries = ({ company, isWithdrawal, amount, currency }: { company: string,
                 branch: value
             }).then((res) => {
                 setValue(`entries.${index}.cost_center`, res.message.cost_center)
-            })      
-        }else {
+            })
+        } else {
             setValue(`entries.${index}.cost_center`, '')
         }
-    }   
+    }
 
     const onAccountChange = (value: string, index: number) => {
         // If it's an income or expense account, get the default cost center
@@ -805,7 +830,7 @@ const Entries = ({ company, isWithdrawal, amount, currency }: { company: string,
                         </TableCell> */}
                         <TableCell className={cn("text-right align-top min-w-40")}>
                             <CurrencyFormField
-                                name={`entries.${index}.debit`} 
+                                name={`entries.${index}.debit`}
                                 label={_("Debit")}
                                 isRequired
                                 hideLabel
@@ -888,11 +913,16 @@ const PartyField = ({ index, onChange, readOnly }: { index: number, onChange: (v
 
     const { control, getValues } = useFormContext<BankEntryFormData>()
 
+    const [dateFilter, setDateFilter] = useState({
+        fromDate: '',
+        toDate: ''
+    })
+
     const party_type = useWatch({
         control,
         name: `entries.${index}.party_type`
     })
-    
+
     const [openModal, setOpenModal] = useState(false)
 
     if (!party_type) {
@@ -914,7 +944,7 @@ const PartyField = ({ index, onChange, readOnly }: { index: number, onChange: (v
         rules={{
             onChange: (event) => {
                 const value = event.target.value
-                
+
                 onChange(value, index, () => setOpenModal(true))
 
             },
@@ -925,15 +955,20 @@ const PartyField = ({ index, onChange, readOnly }: { index: number, onChange: (v
         doctype={party_type}
 
     />
-    <Dialog open={openModal} onOpenChange={setOpenModal}>
+        <Dialog open={openModal} onOpenChange={setOpenModal}>
             <DialogContent className="min-w-[75vw]">
-                <DialogHeader>
-                    <DialogTitle>Select Invoices</DialogTitle>
+                <DialogHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <DialogTitle>Select Invoices</DialogTitle>
+                    </div>
+                    <DateFilter value={dateFilter} onChange={setDateFilter} />
                 </DialogHeader>
 
                 <FetchInvoicesModal
                     index={index}
                     onClose={() => setOpenModal(false)}
+                    dateFilter={dateFilter}
+                    setDateFilter={setDateFilter}
                 />
             </DialogContent>
         </Dialog>
@@ -946,14 +981,14 @@ const BranchChildField = ({ index, onChange }: { index: number, onChange: (value
     return <LinkFormField
         name={`entries.${index}.branch`}
         label={"Branch"}
-        buttonClassName="w-full"  
-        hideLabel       
+        buttonClassName="w-full"
+        hideLabel
         rules={{
             onChange: (e) => {
                 const selectedValue = e?.target?.value ?? '';
                 onChange(selectedValue, index);
             }
-        }}    
+        }}
         doctype={'Branch'}
     />
 }
@@ -1011,6 +1046,7 @@ interface OutstandingInvoice {
     voucher_no: string
     bill_no?: string
     due_date: string
+    posting_date: string
     invoice_amount: number
     outstanding_amount: number,
     payment_term?: string,
@@ -1018,168 +1054,154 @@ interface OutstandingInvoice {
     account?: string,
     allocated_amount?: number,
 }
-    const FetchInvoicesModal = ({
-        index,
-        onClose
-    }: {
-        index: number,
-        onClose: () => void
-    }) => {
+const FetchInvoicesModal = ({
+    index,
+    onClose,
+    dateFilter,
+    setDateFilter,
+}: {
+    index: number,
+    onClose: () => void,
+    dateFilter: { fromDate: string, toDate: string },
+    setDateFilter: (val: { fromDate: string; toDate: string }) => void
+}) => {
+    const { getValues, control, setValue } = useFormContext<BankEntryFormData>()
+    const { append } = useFieldArray({ control, name: 'entries' })
 
-        const { getValues, control, setValue } = useFormContext<BankEntryFormData>()
+    const partyType = getValues(`entries.${index}.party_type`)
+    const party = getValues(`entries.${index}.party`)
+    const branch = getValues(`entries.${index}.branch`)
+    const cost_center = getValues(`entries.${index}.cost_center`)
+    const company = getValues("company")
+    const posting_date = getValues("posting_date")
+    const party_account = getValues(`entries.${index}.account`)
 
-        const { append } = useFieldArray({
-            control: control, // ✅ IMPORTANT FIX
-            name: 'entries'
+    const { data, isLoading, error, mutate } = useFrappeGetCall<{ message: OutstandingInvoice[] }>(
+        'erpnext.accounts.doctype.payment_entry.payment_entry.get_outstanding_reference_documents',
+        {
+            args: {
+                company,
+                posting_date,
+                party_type: partyType,
+                party,
+                party_account,
+                get_outstanding_invoices: true,
+                allocate_payment_amount: 1
+            }
+        }
+    )
+
+    const lastParty = useRef<string | null>(null)
+
+    useEffect(() => {
+        if (!party) return
+        if (lastParty.current !== party) {
+            setDateFilter({ fromDate: '', toDate: '' })
+            mutate?.()
+            lastParty.current = party
+        }
+    }, [party])
+
+    useEffect(() => {
+        if (!data?.message || data.message.length === 0) return
+
+        const dates = data.message.map((inv) => inv.posting_date)
+        const minDate = dayjs(Math.min(...dates.map((d) => dayjs(d).valueOf()))).format('YYYY-MM-DD')
+        const maxDate = dayjs(Math.max(...dates.map((d) => dayjs(d).valueOf()))).format('YYYY-MM-DD')
+        setDateFilter({ fromDate: minDate, toDate: maxDate })
+    }, [data])
+
+    const filteredData = useMemo(() => {
+        if (!data?.message) return []
+        return data.message.filter((inv) => {
+            if (!dateFilter.fromDate || !dateFilter.toDate) return true
+            const date = dayjs(inv.posting_date)
+            return date.isAfter(dayjs(dateFilter.fromDate).subtract(1, 'day')) &&
+                   date.isBefore(dayjs(dateFilter.toDate).add(1, 'day'))
         })
+    }, [data, dateFilter])
 
-        const partyType = getValues(`entries.${index}.party_type`)
-        const party = getValues(`entries.${index}.party`)
-        const company = getValues("company")
-        const posting_date = getValues("posting_date")
-        const party_account = getValues(`entries.${index}.account`) // ✅ FIX
+    const [selectedInvoices, setSelectedInvoices] = useState<OutstandingInvoice[]>([])
 
-        const { data, isLoading, error } = useFrappeGetCall<{
-            message: OutstandingInvoice[]
-        }>(
-            'erpnext.accounts.doctype.payment_entry.payment_entry.get_outstanding_reference_documents',
-            {
-                args: {
-                    company,
-                    posting_date,
-                    party_type: partyType,
-                    party,
-                    party_account, // ✅ REQUIRED
-                    get_outstanding_invoices: true,
-                    allocate_payment_amount: 1
-                }
-            }
+    const isSelected = (row: OutstandingInvoice) => selectedInvoices.some(i => i.voucher_no === row.voucher_no)
+    const onSelectRow = (row: OutstandingInvoice) => {
+        setSelectedInvoices(prev =>
+            isSelected(row) ? prev.filter(i => i.voucher_no !== row.voucher_no) : [...prev, row]
         )
+    }
 
-        const message = useMemo(() => {
-            if (data && data._server_messages) {
-                const message = JSON.parse(JSON.parse(data._server_messages)[0])
-            
-                return message.message
-            }
-            return ''
-        }, [data])
-
-        const [selectedInvoices, setSelectedInvoices] = useState<OutstandingInvoice[]>([])
-
-        const isSelected = (row: OutstandingInvoice) =>
-            selectedInvoices.some(i => i.voucher_no === row.voucher_no)
-
-        const onSelectRow = (row: OutstandingInvoice) => {
-            if (isSelected(row)) {
-                setSelectedInvoices(prev =>
-                    prev.filter(i => i.voucher_no !== row.voucher_no)
-                )
-            } else {
-                setSelectedInvoices(prev => [...prev, row])
-            }
-        }
-
-        const onSubmit = () => {
-
-            if (selectedInvoices.length === 0) return
-                
-            const entries = getValues("entries")
-            const isWithdrawal = entries[0]?.credit > 0
-                
-            // Remove the current editable row (index)
-            const updatedEntries = [...entries]
-                
-            // Replace current row instead of keeping empty row
-            updatedEntries.splice(index, 1)
-                
-            // Insert selected invoices at same position
-            selectedInvoices.forEach((inv, idx) => {
-                updatedEntries.splice(index + idx, 0, {
-                    account: inv.account || party_account,
-                    party_type: partyType,
-                    party: party,
-                
-                    debit: isWithdrawal ? inv.outstanding_amount : 0,
-                    credit: isWithdrawal ? 0 : inv.outstanding_amount,
-                
-                    cost_center: '',
-                    reference_type: inv.voucher_type,
-                    reference_name: inv.voucher_no
-                })
+    const onSubmit = () => {
+        if (!selectedInvoices.length) return
+        const entries = getValues("entries")
+        const isWithdrawal = entries[0]?.credit > 0
+        const updatedEntries = [...entries]
+        updatedEntries.splice(index, 1)
+        selectedInvoices.forEach((inv, idx) => {
+            updatedEntries.splice(index + idx, 0, {
+                account: inv.account || party_account,
+                party_type: partyType,
+                party: party,
+                branch: branch,
+                debit: isWithdrawal ? inv.outstanding_amount : 0,
+                credit: isWithdrawal ? 0 : inv.outstanding_amount,
+                cost_center: cost_center,
+                reference_type: inv.voucher_type,
+                reference_name: inv.voucher_no
             })
-        
-            // 🔥 IMPORTANT: Update full array
-            setValue("entries", updatedEntries, {
-                shouldDirty: true,
-                shouldTouch: true,
-                shouldValidate: true
-            })
-        
-            onClose()
-        }
+        })
+        setValue("entries", updatedEntries, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+        onClose()
+    }
 
     return (
         <div className="flex flex-col gap-4">
-
             {isLoading && <div>Loading...</div>}
             {error && <ErrorBanner error={error} />}
-
-            {message ? <MissingFiltersBanner text={<MarkdownRenderer content={message} />} /> : null}
-
             {data?.message?.length > 0 && (
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead><Checkbox checked={selectedInvoices.length === data?.message?.length} onCheckedChange={(checked) => {
-                            if (checked) {
-                                setSelectedInvoices(data?.message)
-                            } else {
-                                setSelectedInvoices([])
-                            }
-                        }} />
-                        </TableHead>
+                            <TableHead>
+                                <Checkbox checked={selectedInvoices.length === data?.message?.length} onCheckedChange={(checked) => {
+                                    setSelectedInvoices(checked ? data?.message : [])
+                                }} />
+                            </TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Name</TableHead>
-                            <TableHead>Due Date</TableHead>
+                            <TableHead>Posting Date</TableHead>
                             <TableHead className="text-right">Outstanding</TableHead>
                         </TableRow>
                     </TableHeader>
-
                     <TableBody>
-                        {data.message.map((inv) => (
-                            <TableRow
-                                key={inv.voucher_no}
-                                className="cursor-pointer"
-                                onClick={() => onSelectRow(inv)}
-                            >
-                                <TableCell>
-                                    <Checkbox checked={isSelected(inv)} />
-                                </TableCell>
+                        {filteredData.map((inv) => (
+                            <TableRow key={inv.voucher_no} className="cursor-pointer" onClick={() => onSelectRow(inv)}>
+                                <TableCell><Checkbox checked={isSelected(inv)} /></TableCell>
                                 <TableCell>{inv.voucher_type}</TableCell>
                                 <TableCell>{inv.voucher_no}</TableCell>
-                                <TableCell>{inv.due_date}</TableCell>
-                                <TableCell className="text-right">
-                                    {formatCurrency(inv.outstanding_amount)}
-                                </TableCell>
+                                <TableCell>{formatDate(inv.posting_date)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(inv.outstanding_amount)}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             )}
-
-            <DialogFooter>
-                <Button variant="ghost" onClick={onClose}>
-                    Cancel
-                </Button>
-                <Button onClick={onSubmit}>
-                    Select
-                </Button>
-            </DialogFooter>
-
+            <div className="flex justify-between items-center">
+                <div className="flex gap-2">
+                    <span className="text-muted-foreground">
+                        Invoices: <span className="font-mono ml-1">{selectedInvoices.length}</span>
+                    </span>
+                    /
+                    <span className="text-muted-foreground">
+                        Total: <span className="font-mono ml-1">{formatCurrency(selectedInvoices.reduce((acc, inv) => acc + inv.outstanding_amount, 0))}</span>
+                    </span>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button onClick={onSubmit}>Select</Button>
+                </DialogFooter>
+            </div>
         </div>
     )
 }
-
 
 export default BankEntryModal
