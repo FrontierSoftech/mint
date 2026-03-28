@@ -31,6 +31,7 @@ import MarkdownRenderer from "@/components/ui/markdown"
 import { formatDate } from "@/lib/date"
 import DateFilter from "./DateFilter"
 import dayjs from "dayjs"
+import { ref } from "process"
 
 const BankEntryModal = () => {
 
@@ -1111,13 +1112,21 @@ const FetchInvoicesModal = ({
         setDateFilter({ fromDate: minDate, toDate: maxDate })
     }, [data])
 
+    const message = useMemo(() => {
+        if (data && data._server_messages) {
+            const msg = JSON.parse(JSON.parse(data._server_messages)[0])
+            return msg.message
+        }
+        return ''
+    }, [data])
+
     const filteredData = useMemo(() => {
         if (!data?.message) return []
         return data.message.filter((inv) => {
             if (!dateFilter.fromDate || !dateFilter.toDate) return true
             const date = dayjs(inv.posting_date)
             return date.isAfter(dayjs(dateFilter.fromDate).subtract(1, 'day')) &&
-                   date.isBefore(dayjs(dateFilter.toDate).add(1, 'day'))
+                date.isBefore(dayjs(dateFilter.toDate).add(1, 'day'))
         })
     }, [data, dateFilter])
 
@@ -1157,14 +1166,29 @@ const FetchInvoicesModal = ({
         <div className="flex flex-col gap-4">
             {isLoading && <div>Loading...</div>}
             {error && <ErrorBanner error={error} />}
-            {data?.message?.length > 0 && (
+            {message && (
+                <MissingFiltersBanner
+                    text={<MarkdownRenderer content={message} />}
+                />
+            )}
+            {filteredData.length > 0 && (
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>
-                                <Checkbox checked={selectedInvoices.length === data?.message?.length} onCheckedChange={(checked) => {
+                                {/* <Checkbox checked={selectedInvoices.length === data?.message?.length} onCheckedChange={(checked) => {
                                     setSelectedInvoices(checked ? data?.message : [])
-                                }} />
+                                }} /> */}
+                                <Checkbox
+                                    checked={selectedInvoices.length === filteredData.length}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            setSelectedInvoices(filteredData)
+                                        } else {
+                                            setSelectedInvoices([])
+                                        }
+                                    }}
+                                />
                             </TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Name</TableHead>
@@ -1175,7 +1199,21 @@ const FetchInvoicesModal = ({
                     <TableBody>
                         {filteredData.map((inv) => (
                             <TableRow key={inv.voucher_no} className="cursor-pointer" onClick={() => onSelectRow(inv)}>
-                                <TableCell><Checkbox checked={isSelected(inv)} /></TableCell>
+                                <TableCell>
+                                    {/* <Checkbox checked={isSelected(inv)} /> */}
+                                    <Checkbox
+                                        checked={selectedInvoices.includes(inv)}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                setSelectedInvoices([...selectedInvoices, inv])
+                                            } else {
+                                                setSelectedInvoices(
+                                                    selectedInvoices.filter((invs) => invs !== inv)
+                                                )
+                                            }
+                                        }}
+                                    />
+                                </TableCell>
                                 <TableCell>{inv.voucher_type}</TableCell>
                                 <TableCell>{inv.voucher_no}</TableCell>
                                 <TableCell>{formatDate(inv.posting_date)}</TableCell>
