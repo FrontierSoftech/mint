@@ -1146,7 +1146,7 @@ const FetchInvoicesModal = ({
         const isWithdrawal = entries[0]?.credit > 0
         const updatedEntries = [...entries]
         updatedEntries.splice(index, 1)
-        selectedInvoices.forEach((inv, idx) => {
+        selectedInvoices.map((inv, idx) => {
             updatedEntries.splice(index + idx, 0, {
                 account: inv.account || party_account,
                 party_type: partyType,
