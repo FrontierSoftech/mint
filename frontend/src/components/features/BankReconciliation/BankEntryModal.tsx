@@ -1054,6 +1054,7 @@ interface OutstandingInvoice {
     payment_term_outstanding?: string,
     account?: string,
     allocated_amount?: number,
+    cheque_no?: string
 }
 const FetchInvoicesModal = ({
     index,
@@ -1078,7 +1079,7 @@ const FetchInvoicesModal = ({
     const party_account = getValues(`entries.${index}.account`)
 
     const { data, isLoading, error, mutate } = useFrappeGetCall<{ message: OutstandingInvoice[] }>(
-        'erpnext.accounts.doctype.payment_entry.payment_entry.get_outstanding_reference_documents',
+        'mint.apis.bank_reconciliation.get_outstanding_reference_document',
         {
             args: {
                 company,
@@ -1192,6 +1193,7 @@ const FetchInvoicesModal = ({
                             </TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Name</TableHead>
+                            <TableHead>Reference No</TableHead>
                             <TableHead>Posting Date</TableHead>
                             <TableHead className="text-right">Outstanding</TableHead>
                         </TableRow>
@@ -1216,6 +1218,7 @@ const FetchInvoicesModal = ({
                                 </TableCell>
                                 <TableCell>{inv.voucher_type}</TableCell>
                                 <TableCell>{inv.voucher_no}</TableCell>
+                                <TableCell>{inv.cheque_no ?? "-"}</TableCell>
                                 <TableCell>{formatDate(inv.posting_date)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(inv.outstanding_amount)}</TableCell>
                             </TableRow>

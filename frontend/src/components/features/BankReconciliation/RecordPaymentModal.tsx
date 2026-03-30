@@ -979,6 +979,7 @@ const Summary = ({ currency }: { currency: string }) => {
 
     </div>
 }
+
 const GetUnpaidInvoicesButton = () => {
 
     const [isOpen, setIsOpen] = useAtom(isUnpaidInvoicesButtonOpen)
@@ -1026,6 +1027,7 @@ interface OutstandingInvoice {
     payment_term_outstanding?: string,
     account?: string,
     allocated_amount?: number,
+    cheque_no?: string
 }
 const FetchInvoicesModal = ({
     onClose,
@@ -1042,6 +1044,7 @@ const FetchInvoicesModal = ({
 
     const party = getValues("party");
     const partyType = getValues("party_type");
+    
     // ✅ FETCH API
     const {
         data,
@@ -1052,7 +1055,7 @@ const FetchInvoicesModal = ({
         message: OutstandingInvoice[],
         _server_messages?: string
     }>(
-        'erpnext.accounts.doctype.payment_entry.payment_entry.get_outstanding_reference_documents',
+        'mint.apis.bank_reconciliation.get_outstanding_reference_document',
         {
             args: {
                 company: getValues('company'),
@@ -1210,7 +1213,7 @@ const FetchInvoicesModal = ({
                             </TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Name</TableHead>
-                            <TableHead>Invoice No</TableHead>
+                            <TableHead>Reference No</TableHead>
                             <TableHead>Posting Date</TableHead>
                             <TableHead className="text-right">Grand Total</TableHead>
                             <TableHead className="text-right">Outstanding</TableHead>
@@ -1260,7 +1263,7 @@ const FetchInvoicesModal = ({
                                     </a>
                                 </TableCell>
 
-                                <TableCell>{ref.bill_no ?? "-"}</TableCell>
+                                <TableCell>{ref.cheque_no ?? "-"}</TableCell>
 
                                 <TableCell>{formatDate(ref.posting_date)}</TableCell>
 
