@@ -1056,6 +1056,7 @@ interface OutstandingInvoice {
     allocated_amount?: number,
     cheque_no?: string
 }
+
 const FetchInvoicesModal = ({
     index,
     onClose,
@@ -1067,6 +1068,7 @@ const FetchInvoicesModal = ({
     dateFilter: { fromDate: string, toDate: string },
     setDateFilter: (val: { fromDate: string; toDate: string }) => void
 }) => {
+
     const { getValues, control, setValue } = useFormContext<BankEntryFormData>()
     const { append } = useFieldArray({ control, name: 'entries' })
 
@@ -1078,20 +1080,21 @@ const FetchInvoicesModal = ({
     const posting_date = getValues("posting_date")
     const party_account = getValues(`entries.${index}.account`)
 
-    const { data, isLoading, error, mutate } = useFrappeGetCall<{ message: OutstandingInvoice[] }>(
-        'mint.apis.bank_reconciliation.get_outstanding_reference_document',
-        {
-            args: {
-                company,
-                posting_date,
-                party_type: partyType,
-                party,
-                party_account,
-                get_outstanding_invoices: true,
-                allocate_payment_amount: 1
+    const { data, isLoading, error, mutate } =
+        useFrappeGetCall<{ message: OutstandingInvoice[] }>(
+            'mint.apis.bank_reconciliation.get_outstanding_reference_document',
+            {
+                args: {
+                    company,
+                    posting_date,
+                    party_type: partyType,
+                    party,
+                    party_account,
+                    get_outstanding_invoices: true,
+                    allocate_payment_amount: 1
+                }
             }
-        }
-    )
+        )
 
     const lastParty = useRef<string | null>(null)
 
@@ -1110,6 +1113,7 @@ const FetchInvoicesModal = ({
         const dates = data.message.map((inv) => inv.posting_date)
         const minDate = dayjs(Math.min(...dates.map((d) => dayjs(d).valueOf()))).format('YYYY-MM-DD')
         const maxDate = dayjs(Math.max(...dates.map((d) => dayjs(d).valueOf()))).format('YYYY-MM-DD')
+
         setDateFilter({ fromDate: minDate, toDate: maxDate })
     }, [data])
 
@@ -1123,9 +1127,12 @@ const FetchInvoicesModal = ({
 
     const filteredData = useMemo(() => {
         if (!data?.message) return []
+
         return data.message.filter((inv) => {
             if (!dateFilter.fromDate || !dateFilter.toDate) return true
+
             const date = dayjs(inv.posting_date)
+
             return date.isAfter(dayjs(dateFilter.fromDate).subtract(1, 'day')) &&
                 date.isBefore(dayjs(dateFilter.toDate).add(1, 'day'))
         })
@@ -1133,20 +1140,30 @@ const FetchInvoicesModal = ({
 
     const [selectedInvoices, setSelectedInvoices] = useState<OutstandingInvoice[]>([])
 
-    const isSelected = (row: OutstandingInvoice) => selectedInvoices.some(i => i.voucher_no === row.voucher_no)
-    const onSelectRow = (row: OutstandingInvoice) => {
-        setSelectedInvoices(prev =>
-            isSelected(row) ? prev.filter(i => i.voucher_no !== row.voucher_no) : [...prev, row]
-        )
+    const isSelected = (row: OutstandingInvoice) =>
+        selectedInvoices.some(i => i.voucher_no === row.voucher_no)
+
+    const toggleSelection = (row: OutstandingInvoice) => {
+        setSelectedInvoices(prev => {
+            const exists = prev.some(i => i.voucher_no === row.voucher_no)
+
+            if (exists) {
+                return prev.filter(i => i.voucher_no !== row.voucher_no)
+            }
+            return [...prev, row]
+        })
     }
 
     const onSubmit = () => {
         if (!selectedInvoices.length) return
+
         const entries = getValues("entries")
         const isWithdrawal = entries[0]?.credit > 0
+
         const updatedEntries = [...entries]
         updatedEntries.splice(index, 1)
-        selectedInvoices.map((inv, idx) => {
+
+        selectedInvoices.forEach((inv, idx) => {
             updatedEntries.splice(index + idx, 0, {
                 account: inv.account || party_account,
                 party_type: partyType,
@@ -1159,27 +1176,31 @@ const FetchInvoicesModal = ({
                 reference_name: inv.voucher_no
             })
         })
-        setValue("entries", updatedEntries, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+
+        setValue("entries", updatedEntries, {
+            shouldDirty: true,
+            shouldTouch: true,
+            shouldValidate: true
+        })
+
         onClose()
     }
 
     return (
         <div className="flex flex-col gap-4">
+
             {isLoading && <div>Loading...</div>}
             {error && <ErrorBanner error={error} />}
+
             {message && (
-                <MissingFiltersBanner
-                    text={<MarkdownRenderer content={message} />}
-                />
+                <MissingFiltersBanner text={<MarkdownRenderer content={message} />} />
             )}
+
             {filteredData.length > 0 && (
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>
-                                {/* <Checkbox checked={selectedInvoices.length === data?.message?.length} onCheckedChange={(checked) => {
-                                    setSelectedInvoices(checked ? data?.message : [])
-                                }} /> */}
                                 <Checkbox
                                     checked={selectedInvoices.length === filteredData.length}
                                     onCheckedChange={(checked) => {
@@ -1198,51 +1219,67 @@ const FetchInvoicesModal = ({
                             <TableHead className="text-right">Outstanding</TableHead>
                         </TableRow>
                     </TableHeader>
+
                     <TableBody>
                         {filteredData.map((inv) => (
-                            <TableRow key={inv.voucher_no} className="cursor-pointer" onClick={() => onSelectRow(inv)}>
+                            <TableRow
+                                key={inv.voucher_no}
+                                className="cursor-pointer"
+                                onClick={() => toggleSelection(inv)}
+                            >
                                 <TableCell>
-                                    {/* <Checkbox checked={isSelected(inv)} /> */}
                                     <Checkbox
-                                        checked={selectedInvoices.includes(inv)}
-                                        onCheckedChange={(checked) => {
-                                            if (checked) {
-                                                setSelectedInvoices([...selectedInvoices, inv])
-                                            } else {
-                                                setSelectedInvoices(
-                                                    selectedInvoices.filter((invs) => invs !== inv)
-                                                )
-                                            }
-                                        }}
+                                        checked={isSelected(inv)}
+                                        onClick={(e) => e.stopPropagation()} // ✅ FIX
+                                        onCheckedChange={() => toggleSelection(inv)}
                                     />
                                 </TableCell>
+
                                 <TableCell>{inv.voucher_type}</TableCell>
                                 <TableCell>{inv.voucher_no}</TableCell>
                                 <TableCell>{inv.cheque_no ?? "-"}</TableCell>
                                 <TableCell>{formatDate(inv.posting_date)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(inv.outstanding_amount)}</TableCell>
+                                <TableCell className="text-right">
+                                    {formatCurrency(inv.outstanding_amount)}
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             )}
+
             <div className="flex justify-between items-center">
                 <div className="flex gap-2">
                     <span className="text-muted-foreground">
-                        Invoices: <span className="font-mono ml-1">{selectedInvoices.length}</span>
+                        Invoices:
+                        <span className="font-mono ml-1">
+                            {selectedInvoices.length}
+                        </span>
                     </span>
                     /
                     <span className="text-muted-foreground">
-                        Total: <span className="font-mono ml-1">{formatCurrency(selectedInvoices.reduce((acc, inv) => acc + inv.outstanding_amount, 0))}</span>
+                        Total:
+                        <span className="font-mono ml-1">
+                            {formatCurrency(
+                                selectedInvoices.reduce(
+                                    (acc, inv) => acc + inv.outstanding_amount,
+                                    0
+                                )
+                            )}
+                        </span>
                     </span>
                 </div>
+
                 <DialogFooter>
-                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                    <Button onClick={onSubmit}>Select</Button>
+                    <Button variant="ghost" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button onClick={onSubmit}>
+                        Select
+                    </Button>
                 </DialogFooter>
             </div>
         </div>
     )
 }
-
 export default BankEntryModal
