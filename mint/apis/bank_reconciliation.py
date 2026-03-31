@@ -13,8 +13,10 @@ from erpnext.accounts.utils import (
 from erpnext.controllers.accounts_controller import (
 	get_supplier_block_status
 )
-from erpnext.accounts.doctype.payment_entry.payment_entry import split_invoices_based_on_payment_terms 
-from erpnext.accounts.doctype.payment_entry.payment_entry import get_negative_outstanding_invoices 
+from erpnext.accounts.doctype.payment_entry.payment_entry import (
+    split_refdocs_based_on_payment_terms,
+    get_negative_outstanding_invoices 
+)
 
 @frappe.whitelist()
 def clear_clearing_date(voucher_type: str, voucher_name: str):
@@ -698,9 +700,7 @@ def get_outstanding_reference_document(args, validate=False):
 			vouchers=args.get("vouchers") or None,
 		)
 
-		outstanding_invoices = split_invoices_based_on_payment_terms(
-			outstanding_invoices, args.get("company")
-		)
+		outstanding_invoices = split_refdocs_based_on_payment_terms(outstanding_invoices, args.get("company"))
 
 		for d in outstanding_invoices:
 			d["exchange_rate"] = 1
@@ -740,6 +740,8 @@ def get_outstanding_reference_document(args, validate=False):
 			company_currency,
 			filters=args,
 		)
+
+		orders_to_be_billed = split_refdocs_based_on_payment_terms(orders_to_be_billed, args.get("company"))
 
 	data = negative_outstanding_invoices + outstanding_invoices + orders_to_be_billed
 
