@@ -38,6 +38,19 @@ def get_statement_details(file_url: str, bank_account: str):
 
     date_format, amount_format = get_file_properties(transaction_rows)
 
+    char_map = {
+        "%d": "DD",
+        "%m": "MM",
+        "%Y": "YYYY",
+        "%y": "YY",
+        "%b": "MMM",
+        "%B": "MMMM",
+    }
+
+    formatted_date_format = date_format
+    for char, replacement in char_map.items():
+        formatted_date_format = formatted_date_format.replace(char, replacement)
+
     statement_start_date, statement_end_date, closing_balance = get_closing_balance(transaction_rows, date_format)
 
     conflicting_transactions = check_for_conflicts(bank_account, statement_start_date, statement_end_date)
@@ -58,7 +71,7 @@ def get_statement_details(file_url: str, bank_account: str):
         "transaction_starting_index": transaction_starting_index,
         "transaction_ending_index": transaction_ending_index,
         "transaction_rows": transaction_rows,
-        "date_format": date_format,
+        "date_format": formatted_date_format,
         "amount_format": amount_format,
         "statement_start_date": statement_start_date,
         "statement_end_date": statement_end_date,
@@ -156,14 +169,14 @@ def get_data(file_path: str):
     extension = parts[1]
     content = file_doc.get_content()
 
-    if extension not in (".csv", ".xlsx", ".xls"):
+    if extension.lower() not in (".csv", ".xlsx", ".xls"):
         frappe.throw(_("Import template should be of type .csv, .xlsx or .xls"), title="Invalid File Type")
 
-    if extension == ".csv":
+    if extension.lower() == ".csv":
         data = read_csv_content(content)
-    elif extension == ".xlsx":
+    elif extension.lower() == ".xlsx":
         data = read_xlsx_file_from_attached_file(fcontent=content)
-    elif extension == ".xls":
+    elif extension.lower() == ".xls":
         data = read_xls_file_from_attached_file(content)
     
     return data
@@ -203,13 +216,13 @@ def get_column_mapping(header_row: list[str]):
     """
     standard_variables = {
         "Date": ["date", "transaction date"], 
+        "Withdrawal": ["withdrawal", "debit"],
+        "Deposit": ["deposit", "credit"],
         "Amount": ["amount"], 
         "Description": ["description", "particulars", "remarks", "narration", "detail", "reference"], 
         "Reference": ["reference", "ref", "tran id", "transaction id", "cheque", "check", "id"], 
-        "Transaction Type": ["transaction type", "cr/dr", "dr/cr"], 
+        "Transaction Type": ["transaction type", "cr/dr", "dr/cr", "debit/credit", "credit/debit"], 
         "Balance": ["balance"],
-        "Withdrawal": ["withdrawal", "debit"],
-        "Deposit": ["deposit", "credit"],
     }
 
     # A standard variable can be represented by multiple names
@@ -284,6 +297,9 @@ def get_transaction_rows(data: list[list[str]], header_index: int, column_mappin
         if not date:
             continue
 
+        if isinstance(date, datetime):
+            date = date.strftime("%Y-%m-%d")
+
         if not isinstance(date, str):
             continue
 
@@ -350,9 +366,12 @@ def get_float_amount(amount):
 
     if isinstance(amount, str):
         amount = amount.lower().replace(",", "").replace(" ", "").replace("cr", "").replace("dr", "")
-        # Remove any other alphabets and currency symbols
-        amount = re.sub(r'[^\d.]', '', amount)
-        amount = float(amount)
+        # Remove any other alphabets and currency symbols - do not remove the minus or decimal sign
+        amount = re.sub(r'[^\d.-]', '', amount)
+        try:
+            amount = float(amount)
+        except ValueError:
+            return None
     elif isinstance(amount, int):
         amount = float(amount)
     else:
@@ -433,7 +452,10 @@ def get_closing_balance(transactions: list, date_format: str):
         if not date:
             continue
 
-        tx_date = datetime.strptime(date, date_format)
+        if isinstance(date, datetime):
+            tx_date = date
+        else:
+            tx_date = datetime.strptime(date, date_format)
 
         if statement_start_date is None or tx_date < statement_start_date:
             statement_start_date = tx_date
@@ -511,9 +533,15 @@ def get_final_transactions(transactions: list, date_format: str, amount_format: 
     
     for transaction in transactions:
         date = transaction.get("date")
+
+        if isinstance(date, datetime):
+            date = date.strftime("%Y-%m-%d")
+        else:
+            date = datetime.strptime(date, date_format).strftime("%Y-%m-%d")
+
         withdrawal, deposit = parse_amount(transaction)
         final_transactions.append({
-            "date": datetime.strptime(date, date_format).strftime("%Y-%m-%d"),
+            "date": date,
             "withdrawal": withdrawal,
             "deposit": deposit,
             "description": transaction.get("description"),
