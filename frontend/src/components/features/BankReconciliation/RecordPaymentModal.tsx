@@ -1263,7 +1263,7 @@ const FetchInvoicesModal = ({
                                     </a>
                                 </TableCell>
 
-                                <TableCell>{ref.cheque_no ?? "-"}</TableCell>
+                                <TableCell>{ref.cheque_no ?? ref.bill_no ?? "-"}</TableCell>
 
                                 <TableCell>{formatDate(ref.posting_date)}</TableCell>
 

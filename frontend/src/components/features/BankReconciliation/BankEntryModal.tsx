@@ -32,6 +32,7 @@ import { formatDate } from "@/lib/date"
 import DateFilter from "./DateFilter"
 import dayjs from "dayjs"
 import { ref } from "process"
+import { slug } from "@/lib/frappe"
 
 const BankEntryModal = () => {
 
@@ -1236,8 +1237,16 @@ const FetchInvoicesModal = ({
                                 </TableCell>
 
                                 <TableCell>{inv.voucher_type}</TableCell>
-                                <TableCell>{inv.voucher_no}</TableCell>
-                                <TableCell>{inv.cheque_no ?? "-"}</TableCell>
+                                <TableCell>
+                                    <a
+                                         target="_blank"
+                                         className="underline underline-offset-2"
+                                         href={`/app/${slug(inv.voucher_type)}/${inv.voucher_no}`}
+                                     >
+                                         {inv.voucher_no}
+                                     </a>
+                                </TableCell>
+                                <TableCell>{inv.cheque_no ?? inv.bill_no ?? "-"}</TableCell>
                                 <TableCell>{formatDate(inv.posting_date)}</TableCell>
                                 <TableCell className="text-right">
                                     {formatCurrency(inv.outstanding_amount)}
