@@ -530,6 +530,30 @@ def get_cost_center(branch: str):
         }
 
 @frappe.whitelist(methods=["GET"])
+def get_linked_payments(
+    bank_transaction_name: str | int,
+    document_types: str | list | None = None,
+    from_date: str | None = None,
+    to_date: str | None = None,
+    filter_by_reference_date: bool | None = None,
+    from_reference_date: str | None = None,
+    to_reference_date: str | None = None,
+):
+    from erpnext.accounts.doctype.bank_reconciliation_tool.bank_reconciliation_tool import get_linked_payments as _get_linked_payments
+    if isinstance(document_types, str):
+        document_types = json.loads(document_types)
+    return _get_linked_payments(
+        bank_transaction_name=bank_transaction_name,
+        document_types=document_types,
+        from_date=from_date,
+        to_date=to_date,
+        filter_by_reference_date=filter_by_reference_date,
+        from_reference_date=from_reference_date,
+        to_reference_date=to_reference_date,
+    )
+
+
+@frappe.whitelist(methods=["GET"])
 
 def search_for_transfer_transaction(transaction_id: str | int):
     """
