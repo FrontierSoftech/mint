@@ -202,6 +202,8 @@ def create_internal_transfer(bank_transaction_name: str|int,
          pe.paid_to = bank_account
     
     pe.insert()
+    if pe.is_locked:
+        pe.unlock()
     pe.submit()
 
     vouchers = json.dumps(
@@ -397,6 +399,8 @@ def create_bank_entry_and_reconcile(bank_transaction_name: str | int,
         })
 
     bank_entry.insert()
+    if bank_entry.is_locked:
+        bank_entry.unlock()
     bank_entry.submit()
 
     if bank_transaction.deposit > 0.0:
@@ -467,6 +471,8 @@ def create_bulk_payment_entry_and_reconcile(bank_transaction_names: list[str | i
         })
 
         payment_entry_doc.insert()
+        if payment_entry_doc.is_locked:
+            payment_entry_doc.unlock()
         payment_entry_doc.submit()
 
         final_transaction = reconcile_vouchers(bank_transaction_name, json.dumps([{
@@ -494,6 +500,8 @@ def create_payment_entry_and_reconcile(bank_transaction_name: str | int,
         "doctype": "Payment Entry",
     })
     payment_entry.insert()
+    if payment_entry.is_locked:
+        payment_entry.unlock()
     payment_entry.submit()
     transaction = reconcile_vouchers(bank_transaction_name, json.dumps([{
         "payment_doctype": "Payment Entry",
